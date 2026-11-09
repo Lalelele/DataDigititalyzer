@@ -1,5 +1,7 @@
 """Kommandozeile.
 
+  python -m digitalyzer                     (App mit Projektuebersicht im Browser starten)
+  python -m digitalyzer app [--arbeitsordner ORDNER]
   python -m digitalyzer analysieren SCAN.pdf [-o ORDNER]
   python -m digitalyzer pruefen ORDNER
   python -m digitalyzer exportieren ORDNER [-o messwerte.csv]
@@ -11,7 +13,7 @@ import argparse
 import sys
 from pathlib import Path
 
-ALIASES = {"process": "analysieren", "analyse": "analysieren", "review": "pruefen", "prüfen": "pruefen",
+ALIASES = {"start": "app", "process": "analysieren", "analyse": "analysieren", "review": "pruefen", "prüfen": "pruefen",
            "export": "exportieren"}
 
 
@@ -23,13 +25,20 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] in ALIASES:
         argv[0] = ALIASES[argv[0]]
+    if not argv:
+        argv = ["app"]
     # Kurzform: nur eine Datei angegeben
-    if argv and argv[0] not in ("analysieren", "pruefen", "exportieren", "-h", "--help") and Path(argv[0]).is_file():
+    if argv and argv[0] not in ("app", "analysieren", "pruefen", "exportieren", "-h", "--help") and Path(argv[0]).is_file():
         argv = ["analysieren", *argv, "--pruefen"]
 
     ap = argparse.ArgumentParser(prog="python -m digitalyzer",
                                  description="Messwerte aus gescannten Tabellen digitalisieren und pruefen.")
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    w = sub.add_parser("app", help="App mit Projektuebersicht starten (Dokumente hochladen, Einstellungen, Pruefung)")
+    w.add_argument("--arbeitsordner", type=Path, help="Ordner fuer die Projekte (Standard: ~/DataDigititalyzer)")
+    w.add_argument("--port", type=int, default=8765)
+    w.add_argument("--kein-browser", action="store_true", help="Browser nicht automatisch oeffnen")
 
     a = sub.add_parser("analysieren", help="Scan (PDF oder Bild) auswerten")
     a.add_argument("scan", nargs="+", type=Path, help="PDF- oder Bilddatei(en)")
@@ -55,6 +64,11 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--international", action="store_true", help="Komma als Trenner, Punkt als Dezimalzeichen")
 
     args = ap.parse_args(argv)
+
+    if args.cmd == "app":
+        from .server import serve
+        serve(args.arbeitsordner, port=args.port, open_browser=not args.kein_browser)
+        return 0
 
     if args.cmd == "analysieren":
         from .pipeline import process
@@ -85,12 +99,17 @@ def main(argv: list[str] | None = None) -> int:
             outs.append(out)
         if args.pruefen:
             from .server import serve
-            serve(outs[0])
+            serve(outs[0].resolve().parent, open_project=outs[0].resolve().name)
         return 0
 
     if args.cmd == "pruefen":
+        from .pipeline import PROJECT_FILE
         from .server import serve
-        serve(args.ordner, port=args.port, open_browser=not args.kein_browser)
+        folder = args.ordner.resolve()
+        if not (folder / PROJECT_FILE).exists():
+            print(f"Kein ausgewertetes Projekt in {folder}")
+            return 2
+        serve(folder.parent, port=args.port, open_browser=not args.kein_browser, open_project=folder.name)
         return 0
 
     if args.cmd == "exportieren":

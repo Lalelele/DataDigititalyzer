@@ -51,13 +51,19 @@ def _runs(mask1d: np.ndarray) -> list[tuple[int, int]]:
     return runs
 
 
-def remove_specks(mask: np.ndarray, ch: float) -> np.ndarray:
-    """Entfernt Staubpunkte, die deutlich kleiner als eine Ziffer sind."""
-    n, labels, st, _ = cv2.connectedComponentsWithStats(mask, 8)
-    small = (np.maximum(st[:, 2], st[:, 3]) < ch * 0.65)
+def remove_specks(mask: np.ndarray, ch: float, factor: float = 0.65) -> np.ndarray:
+    """Entfernt Staubpunkte: kleine Flecken *ohne andere Tinte in der Naehe*.
+
+    Bruchstuecke einer blassen, zerfallenen Ziffer liegen dicht beieinander und werden
+    deshalb nicht entfernt - sie bilden zusammen (nach leichtem Aufweiten) eine Ziffer.
+    """
+    k = max(3, int(round(ch * 0.3))) | 1
+    grown = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    n, labels, st, _ = cv2.connectedComponentsWithStats(grown, 8)
+    small = (np.maximum(st[:, 2], st[:, 3]) - (k - 1)) < ch * factor
     small[0] = False
     out = mask.copy()
-    out[small[labels]] = 0
+    out[small[labels] & (mask > 0)] = 0
     return out
 
 
@@ -69,25 +75,48 @@ def char_height(mask: np.ndarray) -> float:
     return float(np.median(sel)) if len(sel) else 14.0
 
 
-def find_row_runs(profile: np.ndarray, ch: float) -> list[tuple[float, float]]:
-    """Zeilen in einem 1D-Profil: Bereiche mit Tinte, zu hohe Bereiche werden an Minima geteilt."""
+def find_row_runs(profile: np.ndarray, ch: float, pitch: float | None = None,
+                  run_h: float | None = None) -> list[tuple[float, float]]:
+    """Zeilen in einem 1D-Profil: Bereiche mit Tinte; zu hohe Bereiche (durch Unschaerfe oder
+    dichten Zeilenabstand zusammengewachsene Zeilen) werden an Minima geteilt.
+
+    Die Anzahl Zeilen in einem zusammengewachsenen Block wird aus dem gemessenen
+    Zeilenabstand `pitch` und der typischen Hoehe einer Einzelzeile `run_h` bestimmt.
+    """
     if profile.max() <= 0:
         return []
     p = np.convolve(profile, np.ones(3) / 3, mode="same")
     on = p > max(p.max() * 0.04, 0.5)
-    runs = [(a, b) for a, b in _runs(on) if (b - a) >= ch * 0.35]
+    single = run_h or ch
+    raw = _runs(on)
+    # Bruchstuecke einer Ziffer (blasse/duenne Ziffern zerfallen senkrecht in Teile) wieder
+    # zusammenfuegen, solange das Ergebnis nicht hoeher als eine Zeile wird
+    merged: list[list[int]] = []
+    for a, b in raw:
+        if merged:
+            pa, pb = merged[-1]
+            if a - pb <= max(2, single * 0.35) and (b - pa) <= single * 1.3 and \
+                    ((pb - pa) < single * 0.8 or (b - a) < single * 0.8):
+                merged[-1][1] = b
+                continue
+        merged.append([a, b])
+    runs = [(a, b) for a, b in merged if (b - a) >= ch * 0.35]
     out: list[tuple[float, float]] = []
     for a, b in runs:
         h = b - a
-        n = max(1, int(round(h / (ch * 1.35))))  # verschmolzene Zeilen (Unschaerfe)
-        if n == 1 or h < ch * 1.6:
+        if pitch:
+            n = max(1, int(round((h - single) / pitch)) + 1)
+        else:
+            n = max(1, int(round(h / (ch * 1.35))))
+        if n == 1 or h < single * 1.5:
             out.append((a, b))
             continue
         # an den n-1 tiefsten Minima teilen, nahe der gleichmaessigen Teilung
+        step = (h - single) / (n - 1) if n > 1 else h
         cuts = [a]
         for k in range(1, n):
-            guess = a + h * k / n
-            lo, hi = int(guess - ch * 0.4), int(guess + ch * 0.4)
+            guess = a + single / 2 + step * (k - 0.5)
+            lo, hi = int(guess - step * 0.35), int(guess + step * 0.35)
             lo, hi = max(lo, a + 1), min(hi, b - 1)
             if hi <= lo:
                 cuts.append(int(guess))
@@ -149,6 +178,41 @@ def _row_gap(mask: np.ndarray, a: int, cut: int, b: int, ch: float) -> float:
     return float(np.median(gaps)) if gaps else float("inf")
 
 
+def estimate_pitch(profiles: list[np.ndarray], ch: float) -> float | None:
+    """Zeilenabstand ueber die Autokorrelation der Spaltenprofile.
+
+    Funktioniert auch, wenn sich die Ziffern uebereinanderliegender Zeilen beruehren
+    (keine Luecken zwischen den Zeilen), weil nur die Periodizitaet ausgewertet wird.
+    """
+    lags = []
+    lo, hi = max(3, int(ch * 0.9)), int(ch * 3.2)
+    for p in profiles:
+        if p.sum() == 0 or len(p) < hi * 4:
+            continue
+        nz = np.nonzero(p)[0]
+        seg = p[nz[0]:nz[-1] + 1].astype(float)
+        if len(seg) < hi * 4:
+            continue
+        seg = seg - seg.mean()
+        ac = np.correlate(seg, seg, mode="full")[len(seg) - 1:]
+        ac = ac / (ac[0] + 1e-9)
+        k = lo + int(np.argmax(ac[lo:hi]))
+        if ac[k] < 0.15:
+            continue
+        # erste deutliche Spitze bevorzugen (nicht ein Vielfaches des Abstands)
+        for cand in range(lo, k):
+            if ac[cand] >= 0.8 * ac[k] and ac[cand] >= ac[max(lo, cand - 1)] and ac[cand] >= ac[cand + 1]:
+                k = cand
+                break
+        # parabolische Verfeinerung
+        if lo < k < hi - 1:
+            a_, b_, c_ = ac[k - 1], ac[k], ac[k + 1]
+            den = a_ - 2 * b_ + c_
+            k = k + (0.5 * (a_ - c_) / den if den else 0.0)
+        lags.append(float(k))
+    return float(np.median(lags)) if lags else None
+
+
 def find_columns(mask: np.ndarray, ch: float) -> list[tuple[int, int]]:
     prof = (mask > 0).sum(axis=0).astype(float)
     smooth = np.convolve(prof, np.ones(3) / 3, mode="same")
@@ -177,7 +241,8 @@ def find_columns(mask: np.ndarray, ch: float) -> list[tuple[int, int]]:
     return cols
 
 
-def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int = 5) -> PageLayout:
+def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int = 5,
+            speck: float = 0.65, pitch_override: float = 0.0) -> PageLayout:
     """Analysiert eine begradigte Tintenmaske und liefert das Zellraster.
 
     mask:      strenge Maske (Otsu) - fuer die Spaltentrennung (schmale Luecken bleiben offen)
@@ -186,16 +251,26 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
     ch = char_height(mask)
     cols = find_columns(mask, ch)
     if weak_mask is not None:
-        mask = remove_specks(weak_mask, ch)
+        mask = remove_specks(weak_mask, ch, speck) if speck > 0 else weak_mask
     if not cols:
         return PageLayout(columns=[], row_y=np.zeros((0, 0)), char_height=ch)
+
+    ext0 = extended_ranges(cols, mask.shape[1], ch)
+    profiles0 = [(mask[:, a_:b_] > 0).sum(axis=1).astype(float) for a_, b_ in ext0]
+    # Zeilenabstand ueber Autokorrelation - robust auch bei sich beruehrenden Zeilen
+    pitch0 = pitch_override if pitch_override > 0 else estimate_pitch(profiles0, ch)
+    # typische Hoehe einer einzelnen Zeile (Median der nicht zusammengewachsenen Bloecke)
+    hs0 = np.array([b_ - a_ for p_ in profiles0 for a_, b_ in find_row_runs(p_, ch)], float)
+    if pitch0 is not None and len(hs0):
+        hs0 = hs0[hs0 < pitch0 * 1.2]
+    run_h = float(np.median(hs0)) if len(hs0) else ch
 
     def rows_per_column(cols_):
         ext_ = extended_ranges(cols_, mask.shape[1], ch)
         out = []
         for a_, b_ in ext_:
             prof = (mask[:, a_:b_] > 0).sum(axis=1).astype(float)
-            out.append(find_row_runs(prof, ch))
+            out.append(find_row_runs(prof, ch, pitch0, run_h))
         return out
 
     per_col = rows_per_column(cols)
@@ -223,7 +298,9 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
     # Zeilenabstand (pitch)
     diffs = np.concatenate([np.diff([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col if len(rr) > 2])
     diffs = diffs[diffs > ch * 0.8]
-    pitch = float(np.median(diffs)) if len(diffs) else ch * 1.5
+    pitch = float(np.median(diffs)) if len(diffs) else (pitch0 or ch * 1.5)
+    if pitch_override > 0:
+        pitch = pitch_override
 
     centers = [np.array([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col]
     row_y = _match_rows(centers, pitch)

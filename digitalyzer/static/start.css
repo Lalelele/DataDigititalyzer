@@ -1,0 +1,82 @@
+:root {
+  --ok: #2e9e5b; --warn: #e0a800; --err: #d93025; --blue: #1a73e8;
+  --bg: #f4f5f7; --panel: #fff; --line: #d9dce1; --text: #1f2328; --muted: #6b7280;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: system-ui, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: var(--text); background: var(--bg); }
+header { display: flex; align-items: center; gap: 16px; padding: 10px 14px; background: #1f2937; color: #fff; }
+header .title span { color: #cbd5e1; margin-left: 6px; }
+header .ws { margin-left: auto; color: #cbd5e1; font-size: 12px; }
+#layout { display: grid; grid-template-columns: 330px 1fr; height: calc(100% - 42px); }
+#side { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 10px; }
+#main { overflow: auto; padding: 14px 18px; }
+
+.btn { display: inline-block; font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; text-decoration: none; }
+.btn:hover { border-color: #9ca3af; }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn.primary:hover { background: #1557b0; }
+.btn.small { padding: 3px 8px; font-size: 12px; }
+.btn[disabled], .btn.disabled { opacity: .45; pointer-events: none; }
+
+#drop { border: 2px dashed var(--line); border-radius: 10px; padding: 14px; text-align: center; margin-bottom: 12px; }
+#drop.over { border-color: var(--blue); background: #eef4ff; }
+#drop .droptitle { font-weight: 600; margin-bottom: 8px; }
+#drop .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+#upmsg { font-size: 12px; margin-top: 6px; color: var(--blue); }
+
+.item { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; background: #fff; }
+.item:hover { border-color: #9ca3af; }
+.item.active { border-color: var(--blue); background: #eef4ff; }
+.item .n { font-weight: 600; word-break: break-word; }
+.item .m { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.item .s { font-size: 12px; margin-top: 4px; }
+.badge { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 11px; font-weight: 600; color: #fff; background: #9ca3af; margin-right: 4px; }
+.badge.ok { background: var(--ok); } .badge.warn { background: var(--warn); } .badge.err { background: var(--err); } .badge.run { background: var(--blue); }
+.mini { height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; margin-top: 5px; }
+.mini div { height: 100%; background: var(--blue); }
+
+.emptymsg { max-width: 640px; color: #374151; }
+.emptymsg li { margin: 6px 0; }
+.ptitle { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.ptitle h2 { margin: 0 0 2px; font-size: 20px; }
+.ptitle .sub { color: var(--muted); font-size: 12px; }
+.pbtns { display: flex; gap: 8px; flex: none; }
+.note { background: #fff8e1; border: 1px solid #f3d27a; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; }
+
+#job { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+#job .bar { height: 10px; background: #e5e7eb; border-radius: 5px; overflow: hidden; }
+#jobbar { height: 100%; width: 0; background: var(--blue); transition: width .4s; }
+#jobbar.done { background: var(--ok); } #jobbar.fail { background: var(--err); }
+#jobtext { margin: 6px 0 4px; font-weight: 600; }
+#joblog { max-height: 150px; overflow: auto; margin: 0; font-size: 12px; color: #374151; background: #f9fafb; padding: 6px 8px; border-radius: 4px; white-space: pre-wrap; }
+
+#work { display: grid; grid-template-columns: 360px 1fr; gap: 16px; align-items: start; }
+#settings { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.shead { display: flex; justify-content: space-between; align-items: center; }
+.shead h3 { margin: 4px 0; }
+fieldset { border: none; border-top: 1px solid var(--line); margin: 8px 0 0; padding: 8px 0 0; }
+legend { font-weight: 600; color: #374151; padding-right: 6px; }
+.field { margin: 6px 0 10px; }
+.field label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.field input[type=number], .field select { width: 110px; font: inherit; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; }
+.field input.changed, .field select.changed { border-color: var(--blue); background: #eef4ff; }
+.field .help { color: var(--muted); font-size: 11.5px; margin-top: 2px; line-height: 1.35; }
+.tips { margin-top: 10px; font-size: 12px; color: #374151; background: #f9fafb; padding: 8px 10px; border-radius: 6px; }
+.tips ul { margin: 4px 0 0; padding-left: 18px; }
+
+#preview { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 0; }
+.ptool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+#pinfo { color: #374151; font-size: 12.5px; }
+#pinfo b { color: var(--text); }
+#pinfo .warnx { color: var(--err); font-weight: 600; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 12px; height: 10px; margin-right: 4px; vertical-align: -1px; border-radius: 2px; }
+.lg-cell { border: 2px solid #dc2828; } .lg-col { background: #78c8ff88; } .lg-off { background: #8a8a8a; } .lg-row { background: #007800; }
+#pwrap { position: relative; overflow: auto; max-height: calc(100vh - 220px); background: #6b7280; border-radius: 4px; }
+#pimg { display: block; margin: 0 auto; }
+#pimg.fit { width: 100%; height: auto; }
+#ploading { position: absolute; top: 10px; left: 10px; background: rgba(17,17,17,.8); color: #fff; padding: 4px 10px; border-radius: 4px; display: none; }
+#ploading.show { display: block; }
+#toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 8px 14px; border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 80%; }
+#toast.show { opacity: .92; }
+#toast.err { background: var(--err); }

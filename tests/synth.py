@@ -23,7 +23,8 @@ def make_series(n_points: int, seed: int = 0) -> list[tuple[int, int]]:
 
 def render_page(pairs: list[tuple[int, int]], header: bool = True, pairs_per_row: int = 10,
                 angle: float = 0.0, blur: float = 1.2, seed: int = 0,
-                total_points: int | None = None, n_gray: int = 25) -> np.ndarray:
+                total_points: int | None = None, n_gray: int = 25,
+                row_step: int = 22) -> np.ndarray:
     W, H = 1650, 2300
     img = np.full((H, W), 245, np.uint8)
     font, scale, th = cv2.FONT_HERSHEY_COMPLEX, 0.62, 1
@@ -45,7 +46,7 @@ def render_page(pairs: list[tuple[int, int]], header: bool = True, pairs_per_row
             s = str(c)
             (tw, _), _ = cv2.getTextSize(s, font, scale, th)
             cv2.putText(img, s, (xc + 40 - tw, y), font, scale, 25, th, cv2.LINE_AA)
-        y += 22
+        y += row_step
     cv2.putText(img, "Page 2", (780, 2150), font, 0.7, 30, 1, cv2.LINE_AA)
     rng = np.random.default_rng(seed)
     for _ in range(40):  # Staub

@@ -49,34 +49,59 @@ Internetzugang wird zur Laufzeit nicht benötigt.
 
 ### Benutzung
 
-```bash
-python -m digitalyzer scan.pdf
-```
-
-1. Der Scan wird ausgewertet (etwa 30 s für 4 Seiten). Das Ergebnis landet im Ordner `scan_digitalisiert/`.
-2. Die **Prüf-App** öffnet sich im Browser. Sie läuft nur lokal unter `http://127.0.0.1:8765`.
-3. Offene Punkte durchgehen (Taste **N**) und mit **Enter** bestätigen oder Ziffern tippen und mit **Enter** korrigieren.
-4. **Exportieren** (oben rechts): standardmäßig die **Tabelle wie im Scan** als CSV (siehe [Export](#export)).
-
-Unter Windows geht es auch ohne Kommandozeile: die PDF-Datei mit der Maus auf
-`digitalisieren.bat` ziehen. Das Skript verwendet automatisch die passende Python-Version.
-Von Hand: `py -3.12 -m digitalyzer scan.pdf`. Unter Linux: `./digitalisieren.sh scan.pdf`.
-
-Alle Korrekturen werden **sofort** gespeichert. Die Prüfung lässt sich jederzeit beenden und
-später fortsetzen:
+**Windows:** Doppelklick auf **`digitalisieren.bat`**. **Linux:** `./digitalisieren.sh`. Oder von Hand:
 
 ```bash
-python -m digitalyzer pruefen scan_digitalisiert
+py -3.12 -m digitalyzer
 ```
 
-### Weitere Befehle
+Die App öffnet sich im Browser. Sie läuft nur lokal unter `http://127.0.0.1:8765`. Das
+schwarze Fenster muss offen bleiben, sein Schließen beendet die App.
+
+1. **Dokument auswählen:** links „PDF oder Bild auswählen …“ oder die Datei ins Fenster ziehen. Jedes Dokument wird ein Projekt im **Arbeitsordner** (Standard: `DataDigititalyzer` im Benutzerordner, z. B. `C:\Users\<Name>\DataDigititalyzer`).
+2. **Einstellungen prüfen:** Die **Vorschau** zeigt sofort die begradigte Seite mit den erkannten Spalten (blau), Zellen (rot) und Zeilennummern (grün), dazu Winkel, Spalten-, Zeilen- und Zellenzahl. Jede Änderung einer Einstellung aktualisiert die Vorschau. Siehe [Einstellungen](#einstellungen).
+3. **Scan starten:** Die Erkennung läuft im Hintergrund mit Fortschrittsanzeige (etwa 10 s pro Seite).
+4. **Prüfung öffnen:** offene Punkte durchgehen (Taste **N**) und mit **Enter** bestätigen oder Ziffern tippen und mit **Enter** korrigieren.
+5. **Exportieren** (oben rechts in der Prüfung): standardmäßig die **Tabelle wie im Scan** als CSV (siehe [Export](#export)).
+
+Alle Korrekturen werden **sofort** gespeichert. Über „◀ Projekte“ geht es zurück zur
+Übersicht, die Prüfung lässt sich jederzeit fortsetzen. **Neu auswerten** (z. B. mit
+geänderten Einstellungen) übernimmt bereits von Hand geprüfte Werte, soweit die Zellen an
+derselben Stelle wieder erkannt werden.
+
+Eine PDF direkt auf `digitalisieren.bat` zu ziehen, wertet sie ohne Startseite aus und öffnet
+gleich die Prüfung (Ergebnis im Ordner `<Datei>_digitalisiert` daneben).
+
+### Einstellungen
+
+Normalerweise ist nichts einzustellen. Bei schlechten Scans hilft die Vorschau beim Nachjustieren:
+
+| Problem in der Vorschau | Einstellung |
+|---|---|
+| Raster schief, Zellen verrutschen | **Drehwinkel**: in Schritten von 0,1° korrigieren, oder automatische Erkennung abschalten und den Winkel vorgeben |
+| Seite sehr schief eingelegt | **Suchbereich Schräglage** vergrößern |
+| Blasse Ziffern fehlen (leere Zellen) | **Empfindlichkeit** erhöhen (z. B. 215) |
+| Flecken/Rauschen werden zu Zellen | Empfindlichkeit verringern oder **Staubfilter** erhöhen |
+| Zeilen doppelt oder zusammengelegt | **Zeilenabstand** setzen (den Wert aus der Vorschau-Info übernehmen und anpassen) |
+| Stempel, Notizen oder Lochung am Rand stören | **Ausschnitt**: Ränder ausblenden |
+| Sehr kleine Schrift / niedrige Auflösung | **Bild vergrößern** auf 1,5 oder 2 |
+| Dünne, zerrissene Ziffern werden falsch gelesen | **Glättung für die Texterkennung** (Standard 0,7) |
+| Kopf (Startwinkel, Schritt) unlesbar oder fehlt | **Kopfangaben** eintragen |
+| Spalten nicht als (n, Zählrate)-Paare erkannt | **Paare** auf „ja“ setzen |
+
+Die Einstellungen werden je Projekt gespeichert (`info.json`).
+
+### Befehle ohne App
+
 
 | Befehl | Zweck |
 |---|---|
+| `python -m digitalyzer` bzw. `python -m digitalyzer app [--arbeitsordner ORDNER]` | App mit Projektübersicht starten |
+| `python -m digitalyzer scan.pdf` | Scan direkt auswerten und Prüfung öffnen |
 | `python -m digitalyzer analysieren a.pdf b.pdf` | mehrere Scans auswerten (je ein Projektordner) |
 | `python -m digitalyzer analysieren scan.pdf --neu` | erneut auswerten; die bisherige Prüfung wird als `projekt_<Zeit>.json` gesichert |
 | `python -m digitalyzer analysieren scan.pdf --start 9.89 --schritt 0.05` | Winkel vorgeben, falls der Kopf unlesbar ist |
-| `python -m digitalyzer pruefen ORDNER [--port 8765] [--kein-browser]` | Prüf-App öffnen |
+| `python -m digitalyzer pruefen ORDNER [--port 8765] [--kein-browser]` | Prüfung eines Projektordners öffnen |
 | `python -m digitalyzer exportieren ORDNER [--format tabelle\|messpunkte\|xy] [-o datei] [--international]` | Export ohne Browser |
 
 Ein vorhandenes Projekt wird nie stillschweigend überschrieben.
@@ -134,10 +159,12 @@ PDF ─► Seitenbild ─► Papier finden ─► Hintergrund ─► Schräglage
 3. **Raster:**
    - Spalten werden über das senkrechte Tintenprofil gefunden. Eine Trennung gilt nur, wenn auch die Lücke *in den einzelnen Zeilen* groß genug ist. So wird die führende „1“ dreistelliger Zahlen nicht als eigene Spalte abgetrennt.
    - Zeilen werden **je Spalte** gesucht und dann über die Spalten hinweg zugeordnet. Dadurch stören leichte Blattkrümmungen nicht.
+   - Der **Zeilenabstand** wird über die Autokorrelation des Profils gemessen. So werden auch Zeilen sauber getrennt, deren Ziffern sich bei dichtem Zeilenabstand berühren.
+   - Blasse Ziffern, die in mehrere Bruchstücke zerfallen, werden wieder zusammengefügt. Der Staubfilter entfernt nur Flecken, die **keine Tinte in der Nähe** haben.
    - Kopf und Seitenzahl werden über den abweichenden Zeilenabstand abgetrennt. Staub, Papierkanten und eine unvollständige letzte Zeile werden erkannt.
    - Jeder Tintenblock einer Zeile wird der Spalte zugeordnet, mit der er sich am stärksten überlappt. So gerät auch bei eng stehenden Spalten keine Nachbarziffer in eine Zelle.
 4. **Drei unabhängige Lesarten je Zelle:**
-   - **RapidOCR** (PaddleOCR-Modelle über die ONNX Runtime, lokal) in **zwei Vergrößerungen**.
+   - **RapidOCR** (PaddleOCR-Modelle über die ONNX Runtime, lokal) in **zwei Bildvarianten**: unverändert (2,5-fach vergrößert) und leicht geglättet (3-fach). Die Glättung verbindet dünne, zerrissene Striche.
    - Ein **dokumentspezifischer Ziffernklassifikator**: Die Zellen werden geometrisch in Einzelziffern zerlegt. Ziffern, bei denen die OCR sicher ist, dienen als Lernbeispiele, danach wird jede Ziffer per k-nächste-Nachbarn neu bestimmt.
    - Die Ziffernanzahl ermittelt der Klassifikator aus der Geometrie. Er fängt damit eine bekannte OCR-Schwäche ab, nämlich zusammengezogene Doppelziffern („6“ statt „66“).
 5. **Abgleich und Regeln:**
@@ -155,18 +182,25 @@ PDF ─► Seitenbild ─► Papier finden ─► Hintergrund ─► Schräglage
 
 ---
 
-## Ergebnisse mit dem Beispielscan (4 Seiten, 200 dpi, unscharf)
+## Ergebnisse mit den Beispielscans
 
-| | |
-|---|---|
-| gefundene Messpunkte | **3004 von 3004** laut Kopf erwarteten |
-| Zellen „ok“ (alle Verfahren einig, Regeln erfüllt) | 5855 von 6008 (97,5 %) |
-| zur Prüfung markiert | 153 Zellen (2,5 %), meist schon mit richtigem Vorschlag |
-| Stichprobe von 192 zufälligen „ok“-Zellen, von Hand nachgelesen | alle richtig |
-| Robustheit: Seiten zusätzlich um +3° … −4° gedreht | identisches Raster; 1 Wert weicht ab, und dieser ist markiert |
-| … zusätzlich stärker unscharf | 17 Werte weichen ab, **alle** markiert, keiner als „ok“ durchgerutscht |
+Gemessen mit RapidOCR 1.4.4 (wird unter Python 3.12 installiert). Als Referenz für die
+Messung dienen die geprüften Werte des guten Scans.
 
-Laufzeit: etwa 30 s für 4 Seiten auf einem normalen Rechner (CPU).
+| | guter Scan (4 Seiten, 200 dpi, unscharf) | schlechter Scan (Seite 5, 150 dpi, dünne zerrissene Ziffern, gewölbt) |
+|---|---|---|
+| gefundene Messpunkte | **3004 von 3004** laut Kopf | **704 von 704** (71 Zeilen) |
+| Werte richtig | > 99,9 % | 98,2 % |
+| Zellen „ok“ | 5991 von 6008, Stichprobe von Hand nachgelesen: alle richtig | 1112 von 1408, alle richtig |
+| zur Prüfung markiert | 17 Zellen | 296 Zellen (21 %), meist schon mit richtigem Vorschlag |
+| falsche Werte **ohne** Markierung | 0 | 0 |
+
+Vor den Verbesserungen für dichte Zeilen und zerfallende Ziffern wurden im schlechten Scan
+76 statt 71 Zeilen gefunden, und nur 88,6 % der Werte standen an der richtigen Stelle.
+
+Robustheit: Werden die Seiten des guten Scans zusätzlich um +3° bis −4° gedreht, bleibt das
+Raster identisch, und 1 Wert weicht ab. Mit zusätzlicher Unschärfe weichen 17 Werte ab. In
+beiden Fällen sind **alle** Abweichungen markiert.
 
 ---
 
@@ -197,13 +231,26 @@ Stand inklusive aller Korrekturen.
 ## Projektordner
 
 ```
-scan_digitalisiert/
+<Arbeitsordner>/<Projekt>/
+  scan.pdf                Kopie des hochgeladenen Dokuments
+  info.json               Name, Herkunft, Einstellungen
   projekt.json            alle Zellen: Position im Scan, Lesarten, Wert, Status, Korrekturen
   ziffern.npz             gelernte Ziffernbilder (für die Nachzeichnung)
   seiten/original_001.jpg begradigtes Originalbild
   seiten/kontrast_001.jpg begradigt + Hintergrund ausgeglichen
   tabelle.csv             (nach Export)
 ```
+
+---
+
+## Datenschutz
+
+Alles läuft lokal. Die App lauscht nur auf `127.0.0.1`, also nur auf dem eigenen Rechner.
+Neuere Versionen der ONNX Runtime (die Grundlage der Texterkennung) senden von sich aus
+Nutzungsdaten an Microsoft. Die Funktion `disable_telemetry_events()` allein verhindert das
+nicht, nachgewiesen mit ONNX Runtime 1.31. DataDigititalyzer setzt deshalb beim Start
+zusätzlich `ORT_DISABLE_TELEMETRY=1`. Damit war in Tests kein Verbindungsversuch mehr
+festzustellen.
 
 ---
 
@@ -214,7 +261,7 @@ scan_digitalisiert/
 - Die Seiten werden **begradigt** angezeigt, nicht im ursprünglichen Winkel.
 - Mögliche Erweiterungen:
   - Korrekturen als Trainingsdaten für weitere Dokumente nutzen.
-  - Kopfwerte in der App bearbeiten (bisher über `--start`/`--schritt`).
+  - Mehrere Dokumente nacheinander automatisch auswerten (Warteschlange).
   - Ein beschriftetes PDF zum Archivieren exportieren.
 
 ---
@@ -241,5 +288,6 @@ Messdaten sind nicht im Repository, `*.pdf` steht in `.gitignore`.
 | `validate.py` | Messreihe aufbauen, Regeln, Status, Kopfabgleich |
 | `render.py` | Nachzeichnung der erkannten Werte |
 | `pipeline.py` | Gesamtablauf, Projektdatei |
-| `server.py`, `static/` | Prüf-App (Python-Standardbibliothek + HTML/JS, ohne Internet) |
+| `settings.py` | Einstellungen mit Beschreibung für die Oberfläche |
+| `server.py`, `static/` | App: Projekte, Upload, Vorschau, Auswertung im Hintergrund, Prüfung (Python-Standardbibliothek + HTML/JS, ohne Internet) |
 | `export.py` | CSV / `.xy` |

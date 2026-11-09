@@ -38,3 +38,14 @@ def test_grid_survives_blur(blur):
     pg = prepare_page(render_page(pairs, angle=2.0, blur=blur, n_gray=70))  # blasse, duenne '1' (etwa wie im echten Scan)
     assert len(pg.layout.columns) == 20
     assert sum(not c.empty for c in pg.layout.cells) == 600
+
+
+@pytest.mark.parametrize("row_step", [17, 18, 20])
+def test_dense_rows_touching(row_step):
+    # Zeilen so dicht, dass sich die Ziffern uebereinanderliegender Zeilen beruehren
+    # (keine Luecken mehr im Profil) - Regression fuer schlechte Scans
+    pairs = make_series(600, seed=5)
+    pg = prepare_page(render_page(pairs, angle=1.0, blur=1.3, row_step=row_step))
+    assert len(pg.layout.columns) == 20
+    assert pg.layout.row_y.shape[0] == 60
+    assert sum(not c.empty for c in pg.layout.cells) == 1200

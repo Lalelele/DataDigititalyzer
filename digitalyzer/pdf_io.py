@@ -50,6 +50,39 @@ def load_pages(path: str | Path, render_dpi: int = 300) -> list[np.ndarray]:
     return pages
 
 
+def page_count(path: str | Path) -> int:
+    path = Path(path)
+    if path.suffix.lower() in IMAGE_EXT:
+        return 1
+    import pymupdf
+
+    with pymupdf.open(path) as doc:
+        return doc.page_count
+
+
+def load_page(path: str | Path, index: int, render_dpi: int = 300) -> np.ndarray:
+    """Eine einzelne Seite laden (fuer die schnelle Vorschau)."""
+    path = Path(path)
+    if path.suffix.lower() in IMAGE_EXT:
+        return load_pages(path)[0]
+    import pymupdf
+
+    with pymupdf.open(path) as doc:
+        page = doc[index]
+        imgs = page.get_images(full=True)
+        img = None
+        if len(imgs) == 1:
+            info = doc.extract_image(imgs[0][0])
+            img = _decode(info["image"])
+            rot = page.rotation % 360
+            if img is not None and rot:
+                img = np.rot90(img, k={90: 3, 180: 2, 270: 1}[rot]).copy()
+        if img is None:
+            pix = page.get_pixmap(dpi=render_dpi, colorspace=pymupdf.csGRAY)
+            img = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width).copy()
+        return img
+
+
 def write_image(path: str | Path, img: np.ndarray, quality: int = 92) -> None:
     """Schreibt ein Bild (unicode-sichere Pfade unter Windows)."""
     path = Path(path)

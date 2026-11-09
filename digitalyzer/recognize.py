@@ -71,8 +71,12 @@ class RapidEngine:
         return [(str(r[0]), float(r[1])) for r in res]
 
     def read_cells(self, norm: np.ndarray, boxes: list[tuple[int, int, int, int]], scale: float,
-                   pad: int = 3, batch: int = 256) -> list[tuple[str, str, float]]:
-        """Liest Zellen; liefert je Zelle (Ziffern, Rohtext, Score)."""
+                   pad: int = 3, batch: int = 256, blur: float = 0.0) -> list[tuple[str, str, float]]:
+        """Liest Zellen; liefert je Zelle (Ziffern, Rohtext, Score).
+
+        blur: leichtes Weichzeichnen vor dem Lesen (verbindet duenne, zerrissene Striche)."""
+        if blur > 0:
+            norm = cv2.GaussianBlur(norm, (0, 0), blur)
         crops = []
         h_img, w_img = norm.shape
         for x, y, w, h in boxes:

@@ -33,8 +33,14 @@ def assign_kinds(project: dict) -> None:
             v = [x for x in vals if x]
             single[col] = (sum(1 for x in v if len(x) == 1) / len(v)) if v else 0
         ncols = len(cols)
-        paired = ncols % 2 == 0 and all(single.get(i, 0) >= 0.8 for i in range(0, ncols, 2)) \
-            and sum(single.get(i, 0) for i in range(1, ncols, 2)) / max(1, ncols // 2) < 0.5
+        mode = (project.get("settings") or {}).get("paare", "auto")
+        if mode == "ja":
+            paired = ncols % 2 == 0
+        elif mode == "nein":
+            paired = False
+        else:
+            paired = ncols % 2 == 0 and all(single.get(i, 0) >= 0.8 for i in range(0, ncols, 2)) \
+                and sum(single.get(i, 0) for i in range(1, ncols, 2)) / max(1, ncols // 2) < 0.5
         for col in cols:
             kinds[(p, col)] = ("n" if col % 2 == 0 else "count") if paired else "count"
     for c in project["cells"]:

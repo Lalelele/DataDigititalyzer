@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>DataDigititalyzer – Projekte</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/start.css">
+</head>
+<body>
+<header>
+  <div class="title"><b>DataDigititalyzer</b> <span>Projekte</span></div>
+  <div class="ws" id="ws" title="Hier werden alle Projekte gespeichert"></div>
+</header>
+
+<div id="layout">
+  <aside id="side">
+    <div id="drop">
+      <div class="droptitle">Neues Dokument</div>
+      <label class="btn primary">PDF oder Bild auswählen …
+        <input type="file" id="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" multiple hidden>
+      </label>
+      <div class="hint">oder Datei(en) hierher ziehen</div>
+      <div id="upmsg"></div>
+    </div>
+    <div id="list"></div>
+  </aside>
+
+  <main id="main">
+    <div id="empty" class="emptymsg">
+      <h2>Willkommen</h2>
+      <p>Links ein Dokument hochladen oder ein vorhandenes Projekt auswählen.</p>
+      <ol>
+        <li><b>Dokument auswählen</b> – der Scan wird als Projekt im Arbeitsordner gespeichert.</li>
+        <li><b>Einstellungen prüfen</b> – die Vorschau zeigt sofort, welche Zellen erkannt werden.</li>
+        <li><b>Scan starten</b> – die Werte werden erkannt (etwa 10 s pro Seite).</li>
+        <li><b>Prüfung öffnen</b> – offene Punkte durchgehen und exportieren.</li>
+      </ol>
+    </div>
+
+    <div id="proj" hidden>
+      <div class="ptitle">
+        <div><h2 id="pname"></h2><div class="sub" id="psub"></div></div>
+        <div class="pbtns">
+          <button id="btn-start" class="btn primary">Scan starten</button>
+          <a id="btn-review" class="btn" href="#">Prüfung öffnen</a>
+        </div>
+      </div>
+
+      <div id="job" hidden>
+        <div class="bar"><div id="jobbar"></div></div>
+        <div id="jobtext"></div>
+        <pre id="joblog"></pre>
+      </div>
+
+      <div id="noscan" class="note" hidden>Zu diesem Projekt gibt es keine Scan-Datei – es kann nur geprüft werden.</div>
+
+      <div id="work">
+        <section id="settings">
+          <div class="shead">
+            <h3>Einstellungen</h3>
+            <button id="btn-default" class="btn small" title="Alle Einstellungen auf Standard zurücksetzen">Standard</button>
+          </div>
+          <form id="form" autocomplete="off"></form>
+          <div class="tips">
+            <b>Tipps</b>
+            <ul>
+              <li>Zellen fehlen bei blassen Ziffern → <i>Empfindlichkeit</i> erhöhen.</li>
+              <li>Zeilen doppelt oder zusammengelegt → <i>Zeilenabstand</i> setzen (Wert aus der Vorschau-Info übernehmen und anpassen).</li>
+              <li>Raster schief → <i>Drehwinkel</i> in kleinen Schritten (0,1°) korrigieren.</li>
+              <li>Störungen am Rand (Stempel, Lochung) → <i>Ausschnitt</i> verkleinern.</li>
+              <li>Sehr kleine Schrift → <i>Bild vergrößern</i> auf 1,5 oder 2.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="preview">
+          <div class="ptool">
+            <button id="pg-prev" class="btn small">◀</button>
+            <span id="pg-label">Seite 1</span>
+            <button id="pg-next" class="btn small">▶</button>
+            <label><input type="checkbox" id="fit" checked> an Breite anpassen</label>
+            <span id="pinfo"></span>
+          </div>
+          <div class="legend">
+            <span><i class="lg-cell"></i>erkannte Zelle</span>
+            <span><i class="lg-col"></i>Spalte</span>
+            <span><i class="lg-off"></i>ausgeblendet</span>
+            <span><i class="lg-row"></i>Zeilennummer</span>
+          </div>
+          <div id="pwrap"><div id="ploading">Vorschau wird berechnet …</div><img id="pimg" alt=""></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+<script src="/static/start.js"></script>
+</body>
+</html>

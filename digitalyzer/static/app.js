@@ -6,6 +6,10 @@ const LABEL = { ok: "ok", pruefen: "prüfen", fehler: "Regelverstoß", bestaetig
 const OPEN = new Set(["pruefen", "fehler"]);
 const CAND_NAMES = { ocr1: "Texterkennung (1,5×)", ocr2: "Texterkennung (2,5×)", ziffern: "gelernte Ziffernformen" };
 
+// Projekt aus der Adresse /pruefen/<Projekt>
+const PID = decodeURIComponent(location.pathname.split("/").filter(Boolean)[1] || "");
+const API = `/api/p/${encodeURIComponent(PID)}`;
+
 const S = {
   project: null, byId: new Map(), pages: [], page: 0, view: "tabelle", sel: null,
   imgs: new Map(), synthVersion: {}, pageMode: "overlay", blinkTimer: null, blinkOn: false,
@@ -25,8 +29,12 @@ function toast(msg) {
 
 /* ------------------------------------------------------------------ Daten */
 async function load() {
-  const res = await fetch("/api/projekt");
+  const res = await fetch(`${API}/projekt`);
   S.project = await res.json();
+  if (S.project.fehler) throw new Error(S.project.fehler);
+  const back = document.querySelector("a.back");
+  if (back) back.href = "/#" + encodeURIComponent(PID);
+  document.title = `Prüfung – ${S.project.source || PID}`;
   $("#source").textContent = S.project.source || "";
   for (const c of S.project.cells) S.byId.set(c.id, c);
   S.pages = S.project.pages.map((p) => ({ ...p, rows: new Map() }));
@@ -59,7 +67,7 @@ function buildPoints() {
 
 function imgURL(page, kind) {
   const v = kind === "synthetisch" ? `?v=${S.synthVersion[page] || 0}` : "";
-  return `/api/bild/${page}/${kind}${v}`;
+  return `${API}/bild/${page}/${kind}${v}`;
 }
 
 function getImage(page, kind) {
@@ -313,7 +321,7 @@ async function commit(valueOverride) {
   const v = (valueOverride !== undefined ? valueOverride : inp.value).replace(/\D/g, "");
   const wasOpen = OPEN.has(c.status);
   const action = v === c.value ? "bestaetigen" : "korrigieren";
-  const res = await fetch("/api/zelle", {
+  const res = await fetch(`${API}/zelle`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id: c.id, aktion: action, wert: v }),
   });
@@ -330,7 +338,7 @@ async function commit(valueOverride) {
 async function resetCell() {
   const c = S.byId.get(S.sel);
   if (!c) return;
-  const res = await fetch("/api/zelle", {
+  const res = await fetch(`${API}/zelle`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id: c.id, aktion: "zuruecksetzen" }),
   });
@@ -629,7 +637,7 @@ $("#export").addEventListener("click", () => {
   const s = S.project.summary || {};
   const open = (s.pruefen || 0) + (s.fehler || 0);
   if (open && !confirm(`Es sind noch ${open} Zellen offen. Trotzdem exportieren? (Status steht in der Datei)`)) return;
-  window.location = `/api/export?format=${$("#exportfmt").value}`;
+  window.location = `${API}/export?format=${$("#exportfmt").value}`;
 });
 window.addEventListener("resize", () => { if (S.view === "diagramm") drawPlot(); });
 

@@ -88,3 +88,6 @@ button.small { font-size: 12px; padding: 3px 8px; border: 1px solid var(--line);
 .helpbox td:first-child { font-weight: 600; white-space: nowrap; }
 #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #111; color: #fff; padding: 8px 14px; border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; }
 #toast.show { opacity: .92; }
+
+header a.back { color: #cbd5e1; text-decoration: none; padding: 4px 10px; border: 1px solid #4b5563; border-radius: 6px; white-space: nowrap; }
+header a.back:hover { background: #374151; color: #fff; }
