@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datadigititalyzer"
+version = "0.1.0"
+description = "Messwerte aus gescannten Tabellen digitalisieren - mit Pruefansicht Original/Erkennung"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.24",
+    "opencv-python-headless>=4.8",
+    "pymupdf>=1.23",
+    "rapidocr-onnxruntime>=1.2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+digitalyzer = "digitalyzer.__main__:main"
+
+[tool.setuptools]
+packages = ["digitalyzer"]
+
+[tool.setuptools.package-data]
+digitalyzer = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

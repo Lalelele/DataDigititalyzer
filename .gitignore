@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+# Projektordner und Scans nicht versehentlich einchecken
+*_digitalisiert/
+*.pdf

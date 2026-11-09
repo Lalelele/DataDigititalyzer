@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>DataDigititalyzer – Prüfung</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="title"><b>DataDigititalyzer</b> <span id="source"></span></div>
+  <nav id="tabs">
+    <button data-view="tabelle" class="active" title="F1">Prüftabelle</button>
+    <button data-view="seite" title="F2">Seite</button>
+    <button data-view="diagramm" title="F3">Diagramm</button>
+  </nav>
+  <div id="summary"></div>
+  <div class="actions">
+    <select id="exportfmt" title="Exportformat">
+      <option value="csv">CSV (Excel, deutsch)</option>
+      <option value="csv-int">CSV (international)</option>
+      <option value="xy">.xy (2θ, Zählrate)</option>
+    </select>
+    <button id="export">Exportieren</button>
+    <button id="helpbtn" title="Tastenkürzel">?</button>
+  </div>
+</header>
+
+<div id="main">
+  <aside id="pages"></aside>
+
+  <section id="view-tabelle" class="view active">
+    <div class="toolbar">
+      <label><input type="checkbox" id="onlyflagged"> nur Zeilen mit offenen Punkten</label>
+      <label>Vergrößerung <input type="range" id="zoom" min="1.5" max="4" step="0.25" value="2.25"></label>
+      <button id="prevflag" title="Umschalt+N">◀ vorheriger offener Punkt</button>
+      <button id="nextflag" title="N">nächster offener Punkt ▶</button>
+      <span class="legend">
+        <i class="st-ok"></i>ok <i class="st-pruefen"></i>prüfen <i class="st-fehler"></i>Regelverstoß
+        <i class="st-bestaetigt"></i>bestätigt <i class="st-korrigiert"></i>korrigiert
+      </span>
+    </div>
+    <div id="table"></div>
+  </section>
+
+  <section id="view-seite" class="view">
+    <div class="toolbar">
+      <span class="seg" id="pagemode">
+        <button data-mode="overlay" class="active" title="O">Original + Werte</button>
+        <button data-mode="original" title="R">Nur Original</button>
+        <button data-mode="synth" title="S">Nachgezeichnet</button>
+        <button data-mode="blink" title="B">Blinken</button>
+        <button data-mode="diff" title="D">Differenz</button>
+      </span>
+      <label><input type="checkbox" id="contrast" checked> Kontrast ausgeglichen</label>
+      <label>Zoom <input type="range" id="pzoom" min="0.4" max="3" step="0.1" value="1"></label>
+      <span class="hint" id="pagehint"></span>
+    </div>
+    <div id="pagewrap"><canvas id="pagecanvas"></canvas></div>
+  </section>
+
+  <section id="view-diagramm" class="view">
+    <div class="toolbar">
+      <label><input type="checkbox" id="logscale" checked> logarithmisch</label>
+      <span class="hint">Punkte anklicken springt zur Zelle. Rot/gelb = offene Punkte.</span>
+    </div>
+    <canvas id="plot"></canvas>
+    <div id="plottip"></div>
+  </section>
+
+  <aside id="detail">
+    <div id="detail-empty">Zelle auswählen (Klick oder Pfeiltasten).</div>
+    <div id="detail-body" hidden>
+      <div class="dhead"><span id="d-id"></span> <span id="d-status" class="badge"></span></div>
+      <div id="d-crop"></div>
+      <div class="dvalue">
+        <input id="d-input" autocomplete="off" spellcheck="false" inputmode="numeric">
+        <button id="d-confirm" title="Enter">✓ Übernehmen</button>
+      </div>
+      <div id="d-suggest"></div>
+      <table id="d-cands"></table>
+      <ul id="d-flags"></ul>
+      <div id="d-meta"></div>
+      <button id="d-reset" class="small">Auf Erkennung zurücksetzen</button>
+    </div>
+  </aside>
+</div>
+
+<div id="help" hidden>
+  <div class="helpbox">
+    <h3>Bedienung</h3>
+    <table>
+      <tr><td>Pfeiltasten</td><td>Zelle wechseln</td></tr>
+      <tr><td>Ziffern tippen</td><td>Wert überschreiben</td></tr>
+      <tr><td>Enter</td><td>Wert übernehmen (bestätigen bzw. korrigieren) und weiter</td></tr>
+      <tr><td>Esc</td><td>Eingabe verwerfen</td></tr>
+      <tr><td>N / Umschalt+N</td><td>nächster / vorheriger offener Punkt</td></tr>
+      <tr><td>V</td><td>Vorschlag der Regelprüfung übernehmen</td></tr>
+      <tr><td>F1 / F2 / F3</td><td>Prüftabelle / Seite / Diagramm</td></tr>
+      <tr><td>O R S B D</td><td>Seitenansicht: Overlay, Original, Nachgezeichnet, Blinken, Differenz</td></tr>
+      <tr><td>Bild auf / ab</td><td>vorige / nächste Seite</td></tr>
+    </table>
+    <p><b>Nachgezeichnet / Blinken / Differenz:</b> Die erkannten Werte werden mit den aus
+      dem Dokument gelernten Ziffernformen an derselben Stelle neu gezeichnet. Stimmt alles,
+      ändert sich beim Blinken kaum etwas und das Differenzbild bleibt hell; falsch erkannte
+      Ziffern springen ins Auge.</p>
+    <p>Alle Änderungen werden sofort im Projektordner gespeichert.</p>
+    <button onclick="document.getElementById('help').hidden=true">Schließen</button>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
