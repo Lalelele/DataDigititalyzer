@@ -51,7 +51,15 @@ class RapidEngine:
             onnxruntime.disable_telemetry_events()
         except Exception:
             pass
-        from rapidocr_onnxruntime import RapidOCR  # lokal, pip-installierbar
+        try:
+            from rapidocr_onnxruntime import RapidOCR  # lokal, pip-installierbar
+        except ImportError as e:
+            import sys
+
+            raise SystemExit(
+                f"Die Texterkennung (rapidocr-onnxruntime) ist nicht installiert: {e}\n"
+                f"Verwendetes Python: {sys.version.split()[0]}. Benoetigt wird 64-Bit-Python 3.11-3.13 "
+                "(empfohlen 3.12) und:  py -3.12 -m pip install -r requirements.txt") from e
 
         self._ocr = RapidOCR()
         logging.getLogger("RapidOCR").setLevel(logging.ERROR)

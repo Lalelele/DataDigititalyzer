@@ -8,6 +8,16 @@ if "%~1"=="" (
   pause
   exit /b 1
 )
-where py >nul 2>nul && (set PY=py) || (set PY=python)
+REM Bevorzugt eine Python-Version, fuer die alle Pakete verfuegbar sind (3.12, 3.11, 3.13)
+set PY=
+for %%V in (3.12 3.11 3.13) do (
+  if not defined PY (
+    py -%%V -c "import sys" >nul 2>nul && set PY=py -%%V
+  )
+)
+if not defined PY (
+  where py >nul 2>nul && (set PY=py) || (set PY=python)
+)
+echo Verwende: %PY%
 %PY% -m digitalyzer "%~1"
 pause

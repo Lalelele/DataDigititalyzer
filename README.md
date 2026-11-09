@@ -15,17 +15,29 @@ Endwinkel sowie die Schrittweite.
 
 ### Installation (einmalig)
 
-Voraussetzung ist Python 3.9 oder neuer.
-- **Windows:** Python von <https://www.python.org/downloads/> installieren und dabei „Add python.exe to PATH“ anhaken.
-- **Linux:** Python ist meist vorhanden (`python3`).
+Benötigt wird **64-Bit-Python 3.11, 3.12 oder 3.13**, empfohlen ist **3.12**. Für die neueste
+Version Python 3.15 und für 32-Bit-Python gibt es das Paket `onnxruntime` (noch) nicht, und
+die Installation bricht dann mit „conflicting dependencies … onnxruntime“ ab.
 
-Im Ordner dieses Repositorys:
+**Windows:**
+1. Python 3.12 (64-Bit, „Windows installer (64-bit)“) von <https://www.python.org/downloads/>
+   installieren und dabei „Add python.exe to PATH“ anhaken. Mit dem neuen
+   Python-Installationsmanager geht es auch per `py install 3.12`. Eine bereits installierte
+   andere Python-Version kann bleiben.
+2. Im Ordner dieses Repositorys doppelt auf **`installieren.bat`** klicken. Das Skript wählt
+   automatisch eine passende Python-Version.
+
+Oder von Hand:
 
 ```bash
-# Windows
-py -m pip install -r requirements.txt
+py -3.12 -m pip install -r requirements.txt
+```
 
-# Linux
+Die Frage nach „paths longer than 260 characters“ kann mit **N** beantwortet werden.
+
+**Linux:**
+
+```bash
 python3 -m pip install -r requirements.txt
 ```
 
@@ -47,7 +59,8 @@ python -m digitalyzer scan.pdf
 4. **Exportieren** (oben rechts): CSV für Excel oder `.xy` (2θ, Zählrate).
 
 Unter Windows geht es auch ohne Kommandozeile: die PDF-Datei mit der Maus auf
-`digitalisieren.bat` ziehen. Unter Linux: `./digitalisieren.sh scan.pdf`.
+`digitalisieren.bat` ziehen. Das Skript verwendet automatisch die passende Python-Version.
+Von Hand: `py -3.12 -m digitalyzer scan.pdf`. Unter Linux: `./digitalisieren.sh scan.pdf`.
 
 Alle Korrekturen werden **sofort** gespeichert. Die Prüfung lässt sich jederzeit beenden und
 später fortsetzen:
