@@ -110,9 +110,12 @@ def make_handler(state: ReviewState):
                         if fmt == "xy":
                             body, name = export.to_xy(state.project), "messwerte.xy"
                             ctype = "text/plain; charset=utf-8"
+                        elif fmt.startswith("tabelle"):
+                            body = "\ufeff" + export.to_table_csv(state.project, international=fmt == "tabelle-int")
+                            name, ctype = "tabelle.csv", "text/csv; charset=utf-8"
                         else:
                             body = "﻿" + export.to_csv(state.project, international=fmt == "csv-int")
-                            name, ctype = "messwerte.csv", "text/csv; charset=utf-8"
+                            name, ctype = "messpunkte.csv", "text/csv; charset=utf-8"
                     stem = Path(state.project.get("source", "messwerte")).stem
                     return self._send(200, body.encode("utf-8"), ctype,
                                       {"Content-Disposition": f'attachment; filename="{stem}_{name}"'})

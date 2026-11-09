@@ -48,7 +48,10 @@ def main(argv: list[str] | None = None) -> int:
 
     e = sub.add_parser("exportieren", help="Messwerte als CSV oder .xy schreiben")
     e.add_argument("ordner", type=Path)
-    e.add_argument("-o", "--ziel", type=Path, help="Zieldatei (.csv oder .xy); Standard: <Ordner>/messwerte.csv")
+    e.add_argument("--format", choices=["tabelle", "messpunkte", "xy"], default="tabelle",
+                   help="tabelle: wie im Scan (Standard); messpunkte: eine Zeile je Punkt mit 2Theta, "
+                        "Status und Hinweisen; xy: 2Theta und Zaehlrate")
+    e.add_argument("-o", "--ziel", type=Path, help="Zieldatei; Standard: <Ordner>/tabelle.csv, messpunkte.csv bzw. messwerte.xy")
     e.add_argument("--international", action="store_true", help="Komma als Trenner, Punkt als Dezimalzeichen")
 
     args = ap.parse_args(argv)
@@ -96,8 +99,9 @@ def main(argv: list[str] | None = None) -> int:
         from .validate import validate
         project = load_project(args.ordner)
         validate(project)
-        target = args.ziel or (args.ordner / "messwerte.csv")
-        export.write(project, target, international=args.international)
+        default_name = {"tabelle": "tabelle.csv", "messpunkte": "messpunkte.csv", "xy": "messwerte.xy"}[args.format]
+        target = args.ziel or (args.ordner / default_name)
+        export.write(project, target, international=args.international, fmt=args.format)
         s = project["summary"]
         print(f"Geschrieben: {target}  ({s['points']} Messpunkte; offen: {s['pruefen']} pruefen, {s['fehler']} Fehler)")
         return 0

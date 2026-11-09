@@ -49,6 +49,34 @@ def to_csv(project: dict, international: bool = False) -> str:
     return buf.getvalue()
 
 
+def table_rows(project: dict) -> list[list[str]]:
+    """Die Tabelle genau wie im Scan: eine Zeile je Scanzeile, Werte in Spaltenreihenfolge.
+
+    Seiten werden in ihrer Reihenfolge aneinandergehaengt. Eine unlesbare Zelle bleibt als
+    leeres Feld stehen, damit alle folgenden Werte an ihrem Platz bleiben. Die letzte,
+    unvollstaendige Zeile einer Messreihe ist entsprechend kuerzer.
+    """
+    grid: dict[tuple[int, int], dict[int, str]] = {}
+    for c in project["cells"]:
+        if c.get("status") == "leer":
+            continue
+        grid.setdefault((c["page"], c["row"]), {})[c["col"]] = c.get("value") or ""
+    out = []
+    for key in sorted(grid):
+        cols = grid[key]
+        out.append([cols.get(i, "") for i in range(max(cols) + 1)])
+    return out
+
+
+def to_table_csv(project: dict, international: bool = False) -> str:
+    """Tabelle wie im Scan, ohne Kopfzeile und Zusatzspalten - nur die Werte."""
+    sep = "," if international else ";"
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=sep, lineterminator="\n")
+    w.writerows(table_rows(project))
+    return buf.getvalue()
+
+
 def to_xy(project: dict) -> str:
     """Einfaches Zwei-Spalten-Format (2Theta  Zaehlrate) fuer Auswerteprogramme."""
     lines = []
@@ -58,9 +86,21 @@ def to_xy(project: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write(project: dict, target: str | Path, international: bool = False) -> Path:
+FORMATS = ("tabelle", "messpunkte", "xy")
+
+
+def write(project: dict, target: str | Path, international: bool = False, fmt: str | None = None) -> Path:
+    """Schreibt den Export. fmt: 'tabelle' (wie im Scan), 'messpunkte' (eine Zeile je Punkt)
+    oder 'xy'; ohne Angabe: .xy/.dat/.txt -> xy, sonst Tabelle."""
     target = Path(target)
-    text = to_xy(project) if target.suffix.lower() in (".xy", ".dat", ".txt") else to_csv(project, international)
+    if fmt is None:
+        fmt = "xy" if target.suffix.lower() in (".xy", ".dat", ".txt") else "tabelle"
+    if fmt == "xy":
+        text = to_xy(project)
+    elif fmt == "messpunkte":
+        text = to_csv(project, international)
+    else:
+        text = to_table_csv(project, international)
     # utf-8-sig: Excel erkennt die Kodierung (Umlaute) unter Windows korrekt
     target.write_text(text, encoding="utf-8-sig" if target.suffix.lower() == ".csv" else "utf-8", newline="")
     return target

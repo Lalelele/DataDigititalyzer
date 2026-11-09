@@ -67,3 +67,21 @@ def test_export_formats(run, tmp_path):
     target = export.write(p, tmp_path / "m.csv")
     assert target.read_bytes().startswith(b"\xef\xbb\xbf")  # BOM fuer Excel
     json.dumps(p)  # Projekt bleibt serialisierbar
+
+
+def test_table_export_matches_scan_layout(run):
+    """Tabelle wie im Scan: Zeilen und Werte in Originalreihenfolge."""
+    pairs, out = run
+    p = load_project(out)
+    table = export.table_rows(p)
+    # 2 Seiten x 50 Zeilen x 10 Paare
+    assert len(table) == 100
+    assert all(len(r) == 20 for r in table)
+    flat = [v for r in table for v in r]
+    # identisch mit der Messpunkt-Reihenfolge (n, Zaehlrate, n, Zaehlrate, ...)
+    seq = [v for r in export.rows(p) for v in (r["n"], r["Zaehlrate"])]
+    assert flat == seq
+    truth = [str(v) for pair in pairs for v in pair]
+    assert sum(a != b for a, b in zip(flat, truth)) <= 0.03 * len(truth)
+    text = export.to_table_csv(p)
+    assert text.splitlines()[0].count(";") == 19 and not text.startswith("Messreihe")

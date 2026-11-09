@@ -56,7 +56,7 @@ python -m digitalyzer scan.pdf
 1. Der Scan wird ausgewertet (etwa 30 s für 4 Seiten). Das Ergebnis landet im Ordner `scan_digitalisiert/`.
 2. Die **Prüf-App** öffnet sich im Browser. Sie läuft nur lokal unter `http://127.0.0.1:8765`.
 3. Offene Punkte durchgehen (Taste **N**) und mit **Enter** bestätigen oder Ziffern tippen und mit **Enter** korrigieren.
-4. **Exportieren** (oben rechts): CSV für Excel oder `.xy` (2θ, Zählrate).
+4. **Exportieren** (oben rechts): standardmäßig die **Tabelle wie im Scan** als CSV (siehe [Export](#export)).
 
 Unter Windows geht es auch ohne Kommandozeile: die PDF-Datei mit der Maus auf
 `digitalisieren.bat` ziehen. Das Skript verwendet automatisch die passende Python-Version.
@@ -77,7 +77,7 @@ python -m digitalyzer pruefen scan_digitalisiert
 | `python -m digitalyzer analysieren scan.pdf --neu` | erneut auswerten; die bisherige Prüfung wird als `projekt_<Zeit>.json` gesichert |
 | `python -m digitalyzer analysieren scan.pdf --start 9.89 --schritt 0.05` | Winkel vorgeben, falls der Kopf unlesbar ist |
 | `python -m digitalyzer pruefen ORDNER [--port 8765] [--kein-browser]` | Prüf-App öffnen |
-| `python -m digitalyzer exportieren ORDNER [-o werte.csv\|werte.xy] [--international]` | Export ohne Browser |
+| `python -m digitalyzer exportieren ORDNER [--format tabelle\|messpunkte\|xy] [-o datei] [--international]` | Export ohne Browser |
 
 Ein vorhandenes Projekt wird nie stillschweigend überschrieben.
 
@@ -170,6 +170,30 @@ Laufzeit: etwa 30 s für 4 Seiten auf einem normalen Rechner (CPU).
 
 ---
 
+## Export
+
+| Format | Inhalt |
+|---|---|
+| **Tabelle wie im Scan** (Standard) | Eine Zeile je Scanzeile, die Werte in der Reihenfolge des Originals (`n;Zählrate;n;Zählrate;…`), ohne Überschrift und Zusatzspalten. Die Seiten werden lückenlos aneinandergehängt, die letzte unvollständige Zeile ist entsprechend kürzer. Eine unlesbare Zelle bleibt als leeres Feld stehen, damit alle anderen Werte an ihrem Platz bleiben. |
+| **Messpunkte** | Eine Zeile je Messpunkt: Messreihe, Index, 2θ, n, Zählrate, Seite, Zeile, Spalte, Status beider Zellen, Hinweise. Damit ist jeder Wert auf seine Stelle im Scan zurückführbar. |
+| **.xy** | Zwei Spalten: 2θ und Zählrate, für Auswerteprogramme. |
+
+Für Excel mit deutschen Einstellungen wird das Semikolon als Trenner verwendet,
+„international“ verwendet das Komma. In der App wählt man das Format links neben
+„Exportieren“. Von der Kommandozeile:
+
+```bash
+python -m digitalyzer exportieren scan_digitalisiert
+```
+
+Das schreibt `scan_digitalisiert/tabelle.csv`. Mit `--format messpunkte` oder `--format xy`
+entstehen die anderen Formate.
+
+Sind beim Export noch Zellen offen, fragt die App nach. Exportiert wird immer der aktuelle
+Stand inklusive aller Korrekturen.
+
+---
+
 ## Projektordner
 
 ```
@@ -178,12 +202,8 @@ scan_digitalisiert/
   ziffern.npz             gelernte Ziffernbilder (für die Nachzeichnung)
   seiten/original_001.jpg begradigtes Originalbild
   seiten/kontrast_001.jpg begradigt + Hintergrund ausgeglichen
-  messwerte.csv           (nach Export)
+  tabelle.csv             (nach Export)
 ```
-
-Die CSV enthält je Messpunkt: Messreihe, Index, 2θ, n, Zählrate, Seite, Zeile, Spalte,
-Status beider Zellen und Hinweise. Damit bleibt jeder Wert auf seine Stelle im Scan
-zurückführbar.
 
 ---
 
