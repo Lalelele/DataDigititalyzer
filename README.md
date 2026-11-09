@@ -88,6 +88,7 @@ Normalerweise ist nichts einzustellen. Bei schlechten Scans hilft die Vorschau b
 | Dünne, zerrissene Ziffern werden falsch gelesen | **Glättung für die Texterkennung** (Standard 0,7) |
 | Kopf (Startwinkel, Schritt) unlesbar oder fehlt | **Kopfangaben** eintragen |
 | Spalten nicht als (n, Zählrate)-Paare erkannt | **Paare** auf „ja“ setzen |
+| Eine Randspalte fehlt (Vorschau zeigt 19 statt 20 Spalten) bei stark gewölbtem Blatt | **Drehwinkel** in Schritten von 0,1° nachstellen, bis die Zeilen am betroffenen Rand gerade liegen; notfalls die Seite flacher neu scannen |
 
 Die Einstellungen werden je Projekt gespeichert (`info.json`).
 
@@ -159,6 +160,7 @@ PDF ─► Seitenbild ─► Papier finden ─► Hintergrund ─► Schräglage
 3. **Raster:**
    - Spalten werden über das senkrechte Tintenprofil gefunden. Eine Trennung gilt nur, wenn auch die Lücke *in den einzelnen Zeilen* groß genug ist. So wird die führende „1“ dreistelliger Zahlen nicht als eigene Spalte abgetrennt.
    - Zeilen werden **je Spalte** gesucht und dann über die Spalten hinweg zugeordnet. Dadurch stören leichte Blattkrümmungen nicht.
+   - Spalten, deren Zeilen nicht zum gemeinsamen Raster passen, werden als Störung verworfen (Lochung, Schatten, Notizen am Rand). Dabei zählt nur die **Streuung** der Zeilenpositionen, nicht ein gleichmäßiger **Versatz**: Bei einem gewölbten Blatt liegen die äußeren Spalten durchgehend etwas höher oder tiefer als die Seitenmitte, weil die Begradigung nur einen Winkel je Seite korrigiert. Solche Spalten bleiben erhalten, solange der Versatz unter 0,4 Zeilenabständen liegt.
    - Der **Zeilenabstand** wird über die Autokorrelation des Profils gemessen. So werden auch Zeilen sauber getrennt, deren Ziffern sich bei dichtem Zeilenabstand berühren.
    - Blasse Ziffern, die in mehrere Bruchstücke zerfallen, werden wieder zusammengefügt. Der Staubfilter entfernt nur Flecken, die **keine Tinte in der Nähe** haben.
    - Kopf und Seitenzahl werden über den abweichenden Zeilenabstand abgetrennt. Staub, Papierkanten und eine unvollständige letzte Zeile werden erkannt.

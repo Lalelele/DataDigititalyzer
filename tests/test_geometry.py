@@ -49,3 +49,17 @@ def test_dense_rows_touching(row_step):
     assert len(pg.layout.columns) == 20
     assert pg.layout.row_y.shape[0] == 60
     assert sum(not c.empty for c in pg.layout.cells) == 1200
+
+
+@pytest.mark.parametrize("kruemmung", [8, 12, 16])
+def test_gekruemmtes_blatt_behaelt_randspalte(kruemmung):
+    # Gewoelbtes Blatt: die Zeilen sinken zum linken Rand hin ab. Eine einzige Drehung kann das
+    # nicht ausgleichen, die erste Spalte liegt daher durchgehend etwas tiefer als die
+    # Zeilenmitte. Sie ist aber regelmaessig und darf nicht als Stoerung verworfen werden
+    # (Regression: Seite 3 des Neutronenbeugungs-Scans verlor so die erste n-Spalte).
+    pairs = make_series(400)
+    pg = prepare_page(render_page(pairs, angle=-0.8, kruemmung=kruemmung))
+    lay = pg.layout
+    assert len(lay.columns) == 20
+    assert lay.row_y.shape[0] == 40
+    assert sum(not c.empty for c in lay.cells) == 800

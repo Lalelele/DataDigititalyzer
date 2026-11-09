@@ -307,9 +307,7 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
 
     # Spalten, deren Zeilen nicht zum gemeinsamen Raster passen (Randstoerungen), verwerfen
     if row_y.shape[1] > 2:
-        med = np.nanmedian(row_y, axis=1, keepdims=True)
-        dev = np.nanmedian(np.abs(row_y - med), axis=0)
-        ok = ~(dev > pitch * 0.2)
+        ok = _grid_consistent(row_y, pitch)
         if not ok.all():
             cols = [c for c, k in zip(cols, ok) if k]
             per_col = rows_per_column(cols)
@@ -348,6 +346,33 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
         layout.header_box = (0, 0, mask.shape[1], max(0, table_top))
     layout.cells = _build_cells(mask, layout)
     return layout
+
+
+def _grid_consistent(row_y: np.ndarray, pitch: float, max_scatter: float = 0.2,
+                     max_offset: float = 0.4) -> np.ndarray:
+    """Prueft je Spalte, ob ihre Zeilen zum gemeinsamen Zeilenraster passen.
+
+    Die Abweichung jeder Spalte von der Zeilenmitte (Median ueber alle Spalten) wird in
+    zwei Anteile zerlegt:
+
+    - **Versatz**: der systematische Anteil (Median der Abweichung). Bei gekruemmten oder
+      gewoelbten Blaettern liegen die aeusseren Spalten durchgehend etwas hoeher oder
+      tiefer als die Seitenmitte, weil die Begradigung nur *einen* Winkel je Seite
+      korrigiert. Das ist unschaedlich, die Zeilen werden je Spalte gefunden.
+    - **Streuung**: die Abweichung um diesen Versatz. Echte Textspalten sind sehr
+      regelmaessig (typisch < 0,05 Zeilenabstaende); Stoerungen am Rand (Lochung, Schatten,
+      Notizen) liegen dagegen zufaellig zum Raster (Streuung um 0,25 Zeilenabstaende).
+
+    Verworfen wird nur bei grosser Streuung oder einem Versatz nahe einem halben
+    Zeilenabstand (dann ist die Zeilenzuordnung nicht mehr eindeutig).
+    Rueckgabe: boolesches Array je Spalte (True = behalten).
+    """
+    med = np.nanmedian(row_y, axis=1, keepdims=True)
+    d = row_y - med
+    versatz = np.nanmedian(d, axis=0)
+    streuung = np.nanmedian(np.abs(d - versatz), axis=0)
+    # Spalten ganz ohne Zeilen (NaN) werden hier nicht bewertet (wie bisher: behalten)
+    return ~((streuung > pitch * max_scatter) | (np.abs(versatz) > pitch * max_offset))
 
 
 def _match_rows(centers: list[np.ndarray], pitch: float) -> np.ndarray:
