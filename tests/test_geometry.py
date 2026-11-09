@@ -100,3 +100,17 @@ def test_abgesetzte_fuehrende_ziffer_gehoert_zur_zahl():
     segs = [(919, 929), (962, 969), (976, 1006)]
     res = _assign_segments(segs, cols, ch=11.0)
     assert [c for _, _, c in res] == [1, 2, 2]
+
+
+@pytest.mark.parametrize("abstand", [3, 5])
+def test_abgesetzte_fuehrende_ziffer_bildet_keine_eigene_spalte(abstand):
+    # Seite 4 des Neutronenbeugungs-Scans (paper-004): die fuehrende Ziffer dreistelliger
+    # Zaehlraten steht etwas abgesetzt ('1 03'). Viele dreistellige Werte bilden im
+    # Spaltenprofil ein eigenes schmales Band, das wieder mit der Zahl vereinigt werden muss
+    # (Regression: 22 statt 20 Spalten, die '1' landete in einer eigenen Spalte).
+    rng = np.random.default_rng(3)
+    pairs = [(1 + i // 140, int(c)) for i, c in enumerate(rng.integers(70, 140, 400))]  # ~60 % dreistellig
+    lay = prepare_page(render_page(pairs, angle=-0.8, abstand_fuehrend=abstand)).layout
+    assert len(lay.columns) == 20
+    assert lay.row_y.shape[0] == 40
+    assert sum(not c.empty for c in lay.cells) == 800

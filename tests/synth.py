@@ -25,14 +25,18 @@ def render_page(pairs: list[tuple[int, int]], header: bool = True, pairs_per_row
                 angle: float = 0.0, blur: float = 1.2, seed: int = 0,
                 total_points: int | None = None, n_gray: int = 25,
                 row_step: int = 22, kruemmung: float = 0.0,
-                verblassen: float = 0.0) -> np.ndarray:
+                verblassen: float = 0.0, abstand_fuehrend: int = 0) -> np.ndarray:
     """kruemmung: senkt die Zeilen zum linken Rand hin um bis zu so viele Pixel ab
     (gewoelbtes Blatt, wie bei Seite 3 des Neutronenbeugungs-Scans). Die Seitenmitte und
     die rechte Haelfte bleiben gerade, daher kann eine einzige Drehung das nicht ausgleichen.
 
     verblassen: Anteil (0..1), um den die Tinte am oberen Seitenrand heller ist als unten
     (ungleichmaessig belichteter oder verblasster Scan, wie beim Neutronenbeugungs-Scan
-    Seite 32/33). Der Uebergang ist linear ueber die Seitenhoehe."""
+    Seite 32/33). Der Uebergang ist linear ueber die Seitenhoehe.
+
+    abstand_fuehrend: zusaetzlicher Abstand (Pixel) zwischen der fuehrenden Ziffer und dem
+    Rest drei- und mehrstelliger Zaehlraten ('1 03' statt '103'), wie auf Seite 4 des
+    Neutronenbeugungs-Scans (paper-004)."""
     W, H = 1650, 2300
     img = np.full((H, W), 245, np.uint8)
     font, scale, th = cv2.FONT_HERSHEY_COMPLEX, 0.62, 1
@@ -53,7 +57,14 @@ def render_page(pairs: list[tuple[int, int]], header: bool = True, pairs_per_row
             cv2.putText(img, str(n), (xn, y), font, scale, n_gray, th, cv2.LINE_AA)
             s = str(c)
             (tw, _), _ = cv2.getTextSize(s, font, scale, th)
-            cv2.putText(img, s, (xc + 40 - tw, y), font, scale, 25, th, cv2.LINE_AA)
+            if abstand_fuehrend and len(s) >= 3:
+                rest = s[1:]
+                (rw, _), _ = cv2.getTextSize(rest, font, scale, th)
+                (fw, _), _ = cv2.getTextSize(s[0], font, scale, th)
+                cv2.putText(img, rest, (xc + 40 - rw, y), font, scale, 25, th, cv2.LINE_AA)
+                cv2.putText(img, s[0], (xc + 40 - rw - fw - abstand_fuehrend, y), font, scale, 25, th, cv2.LINE_AA)
+            else:
+                cv2.putText(img, s, (xc + 40 - tw, y), font, scale, 25, th, cv2.LINE_AA)
         y += row_step
     cv2.putText(img, "Page 2", (780, 2150), font, 0.7, 30, 1, cv2.LINE_AA)
     if kruemmung:

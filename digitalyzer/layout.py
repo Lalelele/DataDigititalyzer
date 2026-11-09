@@ -224,9 +224,14 @@ def find_columns(mask: np.ndarray, ch: float) -> list[tuple[int, int]]:
     # Eine Trennung (Tal im Profil oder schmale Luecke) ist nur echt, wenn auch *zeilenweise*
     # eine deutliche Luecke besteht. Sonst wurde nur die fuehrende Ziffer mehrstelliger
     # Zahlen (z.B. die '1' bei 100..199) abgetrennt.
+    # Grenze 1,0 Zeichenhoehen, gemessen an drei Neutronenbeugungs-Scans: der Abstand der
+    # fuehrenden Ziffer zum Rest der Zahl betraegt 0 bis 0,42 Zeichenhoehen (je nach
+    # Schreibmaschine/Scan), echte Spaltenluecken mindestens 2,6 Zeichenhoehen.
+    # (Frueher 0,3 - zu knapp: auf einer Seite stand die '1' 5 px = 0,42 ch abgesetzt,
+    # und die Zaehlratenspalte zerfiel in zwei Spalten.)
     joined: list[list[int]] = []
     for pa, pb in parts:
-        if joined and pa - joined[-1][1] < ch * 0.6 and _row_gap(mask, joined[-1][0], pa, pb, ch) < ch * 0.3:
+        if joined and pa - joined[-1][1] < ch * 0.6 and _row_gap(mask, joined[-1][0], pa, pb, ch) < ch * 1.0:
             joined[-1][1] = pb
         else:
             joined.append([pa, pb])
