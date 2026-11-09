@@ -24,6 +24,39 @@ def normalize_background(gray: np.ndarray, kernel: int = 51) -> np.ndarray:
     return norm
 
 
+def equalize_ink_contrast(norm: np.ndarray, target: float = 155.0, max_gain: float = 3.0,
+                          noise_floor: float = 40.0) -> np.ndarray:
+    """Gleicht die Tintenstaerke ueber die Seite aus (lokaler Kontrastausgleich).
+
+    Manche Scans werden zu einem Rand hin deutlich blasser (Vorlage ungleichmaessig
+    belichtet oder verblasst). Die Schwellen fuer die Tintenmasken gelten aber fuer die
+    ganze Seite - in den blassen Bereichen fallen die Ziffern dann ganz oder teilweise
+    heraus. Gemessen an einem solchen Scan: dunkelste Tinte oben ~160 (Grauwert),
+    unten ~95, Otsu-Schwelle ~150.
+
+    Vorgehen: Tintendunkelheit D = 255 - Grauwert. Je Umgebung (etwa drei Zeilen hoch,
+    anderthalb Spalten breit, relativ zur Seitengroesse) wird die dunkelste Tinte bestimmt
+    und D so verstaerkt, dass sie `target` erreicht. Die Verstaerkung ist auf `max_gain`
+    begrenzt und wird nur dort angewendet, wo ueberhaupt Tinte ist (lokale Dunkelheit
+    deutlich ueber `noise_floor`) - Papierstruktur in leeren Bereichen wird nicht
+    hochgezogen. Bereiche mit kraeftiger Tinte bleiben unveraendert (Verstaerkung >= 1).
+    """
+    h, w = norm.shape[:2]
+    d = 255.0 - norm.astype(np.float32)
+    # einzelne dunkle Pixel (Rauschen) sollen die lokale Tintenstaerke nicht bestimmen
+    d_s = cv2.GaussianBlur(d, (0, 0), 1.0)
+    kh, kw = max(15, int(h * 0.025)) | 1, max(15, int(w * 0.05)) | 1
+    local = cv2.dilate(d_s, cv2.getStructuringElement(cv2.MORPH_RECT, (kw, kh)))
+    # Ausgleich glatt halten, damit keine Kanten an Fenstergrenzen entstehen
+    local = cv2.GaussianBlur(local, (0, 0), sigmaX=kw / 2, sigmaY=kh / 2)
+    gain = np.clip(target / np.maximum(local, 1.0), 1.0, max_gain)
+    # Uebergang: unter noise_floor keine Verstaerkung, ab 1,5 * noise_floor volle Verstaerkung
+    weight = np.clip((local - noise_floor) / (0.5 * noise_floor), 0.0, 1.0)
+    gain = 1.0 + (gain - 1.0) * weight
+    out = 255.0 - np.clip(d * gain, 0, 255)
+    return out.astype(np.uint8)
+
+
 def ink_mask(norm: np.ndarray) -> np.ndarray:
     """Binaere Maske der Tinte (255 = Tinte). Otsu auf dem normalisierten Bild."""
     _, mask = cv2.threshold(norm, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)

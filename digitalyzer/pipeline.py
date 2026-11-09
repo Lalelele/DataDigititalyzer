@@ -49,6 +49,8 @@ def prepare_page(gray: np.ndarray, settings: Settings | None = None, max_skew: f
                           interpolation=cv2.INTER_CUBIC if st.vergroesserung > 1 else cv2.INTER_AREA)
     paper = pp.paper_mask(gray, erode_frac=st.papierrand / 100.0)
     norm = pp.normalize_background(gray)
+    if st.kontrastausgleich:
+        norm = pp.equalize_ink_contrast(norm)
     if st.winkel_auto:
         angle = pp.estimate_skew(pp.ink_mask(norm) & paper, max_angle=max_skew or st.max_winkel) + st.winkel
     else:
