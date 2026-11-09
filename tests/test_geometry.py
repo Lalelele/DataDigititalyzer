@@ -63,3 +63,40 @@ def test_gekruemmtes_blatt_behaelt_randspalte(kruemmung):
     assert len(lay.columns) == 20
     assert lay.row_y.shape[0] == 40
     assert sum(not c.empty for c in lay.cells) == 800
+
+
+@pytest.mark.parametrize("verblassen", [0.75, 0.8])
+def test_blasser_oberer_rand_wird_ausgeglichen(verblassen):
+    # Scan wird zum oberen Rand hin deutlich blasser (Neutronenbeugungs-Scan, Seite 32/33).
+    # Ohne Kontrastausgleich fallen dort Ziffern ganz oder teilweise aus der Tintenmaske.
+    pairs = make_series(400)
+    ref = {(c.row, c.col): c.box[2] for c in prepare_page(render_page(pairs, angle=-0.8)).layout.cells}
+    lay = prepare_page(render_page(pairs, angle=-0.8, verblassen=verblassen)).layout
+    assert len(lay.columns) == 20
+    assert lay.row_y.shape[0] == 40
+    assert sum(not c.empty for c in lay.cells) == 800
+    # Zellen der oberen Zeilen muessen die ganze Zahl umfassen, nicht nur Bruchstuecke
+    oben = [c for c in lay.cells if c.row < 10]
+    zu_schmal = sum(1 for c in oben if c.box[2] < ref[(c.row, c.col)] - 3)
+    assert zu_schmal <= 2
+
+
+def test_kontrastausgleich_laesst_kraeftige_tinte_unveraendert():
+    from digitalyzer.preprocess import equalize_ink_contrast
+    img = np.full((400, 400), 250, np.uint8)
+    img[100:300:20, 50:350:30] = 90  # kraeftige Tinte (wie ein guter Scan)
+    out = equalize_ink_contrast(img)
+    assert np.abs(out.astype(int) - img.astype(int)).max() <= 1
+    leer = np.full((400, 400), 240, np.uint8)  # nur Papier: Rauschen nicht verstaerken
+    assert np.abs(equalize_ink_contrast(leer).astype(int) - 240).max() <= 1
+
+
+def test_abgesetzte_fuehrende_ziffer_gehoert_zur_zahl():
+    # Vierstellige Zaehlrate, deren fuehrende '1' etwas abgesetzt in der Luecke zwischen
+    # n-Spalte und Zaehlratenspalte steht ('8' | '1' '157'). Sie liegt dem n-Band nur
+    # wenige Pixel naeher, gehoert aber zur Zahl rechts (Seite 2, Zeile 65 im Testscan).
+    from digitalyzer.layout import _assign_segments
+    cols = [(862, 911), (912, 958), (984, 1036)]
+    segs = [(919, 929), (962, 969), (976, 1006)]
+    res = _assign_segments(segs, cols, ch=11.0)
+    assert [c for _, _, c in res] == [1, 2, 2]

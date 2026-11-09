@@ -23,6 +23,7 @@ class Settings:
     papierrand: float = 2.5
     # --- Bild ---
     vergroesserung: float = 1.0
+    kontrastausgleich: bool = True
     empfindlichkeit: int = 200
     staubfilter: float = 0.65
     # --- Raster ---
@@ -48,7 +49,7 @@ class Settings:
                 setattr(s, f.name, None if f.name in ("start", "schritt", "ende") else getattr(s, f.name))
                 continue
             try:
-                if f.name in ("winkel_auto",):
+                if f.name in ("winkel_auto", "kontrastausgleich"):
                     v = v if isinstance(v, bool) else str(v).lower() in ("1", "true", "ja", "on")
                 elif f.name == "paare":
                     v = str(v) if str(v) in ("auto", "ja", "nein") else "auto"
@@ -104,6 +105,8 @@ DESCRIPTION = [
      "Streifen entlang der erkannten Papierkante, der ignoriert wird (Schatten, Lochung).", 0, 15, 0.5),
     ("Bild", "vergroesserung", "Bild vergrößern (Faktor)", "number",
      "Für sehr kleine Schrift bzw. niedrige Scanauflösung: 1,5 oder 2 versuchen.", 0.5, 3, 0.25),
+    ("Bild", "kontrastausgleich", "Blasse Bereiche angleichen", "bool",
+     "Verstärkt die Tinte dort, wo der Scan blasser ist (z. B. zum oberen Rand hin), auf das Niveau der übrigen Seite. Kräftige Bereiche bleiben unverändert.", None, None, None),
     ("Bild", "empfindlichkeit", "Empfindlichkeit für blasse Ziffern", "number",
      "Höher = auch sehr blasse Striche gelten als Tinte (Standard 200, Bereich 120–250). "
      "Bei Flecken/Rauschen verringern.", 120, 250, 5),

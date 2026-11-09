@@ -429,6 +429,46 @@ def _match_rows(centers: list[np.ndarray], pitch: float) -> np.ndarray:
     return row_y
 
 
+def _assign_segments(segs: list[tuple[int, int]], cols: list[tuple[int, int]],
+                     ch: float) -> list[tuple[int, int, int]]:
+    """Ordnet die Tintenbloecke einer Zeile (x-Bereiche, von links nach rechts) den Spalten zu.
+
+    1. Bloecke, die ein Spaltenband ueberlappen, gehoeren zur Spalte mit der groessten
+       Ueberlappung.
+    2. Bloecke in einer Luecke zwischen zwei Baendern (z. B. die etwas abgesetzte fuehrende
+       '1' einer vierstelligen Zaehlrate) gehoeren zu dem *benachbarten Tintenblock* mit der
+       kleineren Luecke - Ziffern einer Zahl stehen dichter beieinander als zwei Zahlen.
+       Der Abstand zum Spaltenband allein ist hier unzuverlaessig: er unterscheidet sich oft
+       nur um wenige Pixel.
+    3. Ohne nahen Nachbarblock: naechstgelegenes Spaltenband (wie bisher); Bloecke weit
+       ausserhalb aller Spalten werden verworfen.
+
+    Rueckgabe: Liste (xa, xb, Spalte).
+    """
+    zuordnung: list[int | None] = []
+    for xa, xb in segs:
+        ov = np.array([max(0, min(xb, c1) - max(xa, c0)) for c0, c1 in cols])
+        zuordnung.append(int(np.argmax(ov)) if ov.max() > 0 else None)
+    out = []
+    for i, (xa, xb) in enumerate(segs):
+        c = zuordnung[i]
+        if c is None:
+            # naechster zugeordneter Nachbarblock links und rechts
+            links = next((j for j in range(i - 1, -1, -1) if zuordnung[j] is not None), None)
+            rechts = next((j for j in range(i + 1, len(segs)) if zuordnung[j] is not None), None)
+            gap_l = xa - segs[links][1] if links is not None else np.inf
+            gap_r = segs[rechts][0] - xb if rechts is not None else np.inf
+            if min(gap_l, gap_r) < ch * 0.8 and gap_l != gap_r:
+                c = zuordnung[links] if gap_l < gap_r else zuordnung[rechts]
+            else:
+                dist = np.array([max(c0 - xb, xa - c1, 0) for c0, c1 in cols])
+                c = int(np.argmin(dist))
+                if dist[c] > ch * 1.5:
+                    continue  # Stoerung weit ausserhalb der Spalten
+        out.append((xa, xb, c))
+    return out
+
+
 def _build_cells(mask: np.ndarray, lay: PageLayout) -> list[Cell]:
     """Zellen bilden: jeder Tintenblock einer Zeile wird der Spalte zugeordnet, mit der er
     sich am staerksten ueberlappt (bzw. der naechstgelegenen).
@@ -462,16 +502,8 @@ def _build_cells(mask: np.ndarray, lay: PageLayout) -> list[Cell]:
                 elif not v and start is not None:
                     segs.append((start, i))
                     start = None
-            for a, b in segs:
-                xa, xb = a + x_lo, b + x_lo
-                ov = np.array([max(0, min(xb, c1) - max(xa, c0)) for c0, c1 in cols])
-                if ov.max() > 0:
-                    c = int(np.argmax(ov))
-                else:
-                    dist = np.array([max(c0 - xb, xa - c1, 0) for c0, c1 in cols])
-                    c = int(np.argmin(dist))
-                    if dist[c] > lay.char_height * 1.5:
-                        continue  # Stoerung weit ausserhalb der Spalten
+            for a, b, c in _assign_segments([(a + x_lo, b + x_lo) for a, b in segs], cols, lay.char_height):
+                xa, xb = a, b
                 # Hoehe innerhalb der Zelle (lokale Zeilenposition der Spalte)
                 yc = ys[c] if np.isfinite(ys[c]) else y_ref
                 ya, yb = int(max(0, yc - half)), int(min(mask.shape[0], yc + half))
