@@ -15,6 +15,7 @@ import datetime as _dt
 import json
 import mimetypes
 import re
+import shutil
 import threading
 import traceback
 import webbrowser
@@ -181,7 +182,19 @@ class App:
                 pid, k = f"{stem}_{k}", k + 1
             d = self.ws / pid
             d.mkdir()
-        (d / f"scan{ext}").write_bytes(data)
+        scan = d / f"scan{ext}"
+        scan.write_bytes(data)
+        # gleich pruefen, ob die Datei lesbar ist - sonst kein Projekt anlegen (statt spaeter
+        # unverstaendlicher Fehler in Vorschau oder Auswertung)
+        try:
+            if page_count(scan) < 1:
+                raise ValueError("Die Datei enthaelt keine Seite.")
+            if ext in IMAGE_EXT:
+                load_page(scan, 0)
+        except Exception as e:
+            shutil.rmtree(d, ignore_errors=True)
+            raise ValueError(str(e).strip("'\"") if isinstance(e, (ValueError, KeyError))
+                             else f"Datei kann nicht gelesen werden: {filename}") from e
         self.write_info(d, {"name": stem, "quelle": filename,
                             "erstellt": _dt.datetime.now().isoformat(timespec="seconds"),
                             "einstellungen": Settings().to_dict()})
@@ -278,6 +291,15 @@ class App:
         threading.Thread(target=run, daemon=True).start()
         return job.public()
 
+    def update_cell(self, pid: str, cid: str, action: str, value: str | None) -> dict:
+        """Korrektur speichern. Waehrend einer laufenden Auswertung desselben Projekts nicht
+        moeglich: die Auswertung ueberschreibt am Ende die Projektdatei, die Korrektur ginge
+        verloren (vorher gespeicherte Korrekturen uebernimmt sie dagegen)."""
+        job = self.jobs.get(pid)
+        if job and job.running:
+            raise RuntimeError("Dieses Projekt wird gerade neu ausgewertet. Korrekturen bitte danach eingeben.")
+        return self.review(pid).update_cell(cid, action, value)
+
     def status(self, pid: str) -> dict:
         self.project_dir(pid)
         job = self.jobs.get(pid)
@@ -304,8 +326,8 @@ def make_handler(app: App):
             self._send(code, json.dumps(obj, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
         def _static(self, name: str):
-            f = STATIC / name
-            if not f.is_file():
+            f = (STATIC / name).resolve()
+            if f.parent != STATIC.resolve() or not f.is_file():
                 return self._send(404, b"nicht gefunden", "text/plain")
             ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
             if f.suffix == ".js":
@@ -314,8 +336,25 @@ def make_handler(app: App):
                 ctype += "; charset=utf-8"
             return self._send(200, f.read_bytes(), ctype)
 
+        def _fremd(self) -> bool:
+            """True, wenn die Anfrage nicht von der App selbst stammt.
+
+            Der Server lauscht nur auf 127.0.0.1, aber jede Webseite, die im selben Browser
+            offen ist, koennte ihn ansprechen. Abgelehnt wird deshalb ein fremder Host-Name
+            (DNS-Rebinding) und bei POST ein fremder Ursprung (Origin), damit keine andere Seite
+            Werte aendern, Auswertungen starten oder Daten auslesen kann.
+            """
+            port = self.server.server_address[1]
+            erlaubt = {f"127.0.0.1:{port}", f"localhost:{port}"}
+            if self.headers.get("Host", "") not in erlaubt:
+                return True
+            origin = self.headers.get("Origin")
+            return origin is not None and origin not in {f"http://{h}" for h in erlaubt}
+
         # ---- GET ----
         def do_GET(self):
+            if self._fremd():
+                return self._send(403, b"nicht erlaubt", "text/plain")
             url = urlparse(self.path)
             parts = [unquote(p) for p in url.path.split("/") if p]
             try:
@@ -343,6 +382,8 @@ def make_handler(app: App):
                     if len(rest) == 3 and rest[0] == "bild":
                         rs = app.review(pid)
                         page, kind = int(rest[1]), rest[2]
+                        if not 0 <= page < len(rs.project["pages"]):
+                            raise KeyError(f"Seite {page + 1} gibt es in diesem Projekt nicht.")
                         if kind == "synthetisch":
                             return self._send(200, rs.synthetic(page), "image/png")
                         return self._send(200, page_image(rs.out_dir, rs.project, page, kind), "image/jpeg")
@@ -375,6 +416,8 @@ def make_handler(app: App):
 
         # ---- POST ----
         def do_POST(self):
+            if self._fremd():
+                return self._send(403, b"nicht erlaubt", "text/plain")
             url = urlparse(self.path)
             parts = [unquote(p) for p in url.path.split("/") if p]
             try:
@@ -389,7 +432,7 @@ def make_handler(app: App):
                 if len(parts) == 4 and parts[:2] == ["api", "p"]:
                     pid, action = parts[2], parts[3]
                     if action == "zelle":
-                        return self._json(app.review(pid).update_cell(data["id"], data["aktion"], data.get("wert")))
+                        return self._json(app.update_cell(pid, data["id"], data["aktion"], data.get("wert")))
                     if action == "vorschau":
                         return self._json(app.preview(pid, int(data.get("seite", 0)), data.get("einstellungen")))
                     if action == "einstellungen":

@@ -7,7 +7,8 @@ import numpy as np
 
 def to_gray(img: np.ndarray) -> np.ndarray:
     if img.ndim == 3:
-        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        code = cv2.COLOR_BGRA2GRAY if img.shape[2] == 4 else cv2.COLOR_BGR2GRAY
+        return cv2.cvtColor(img, code)
     return img
 
 
@@ -70,21 +71,6 @@ def weak_ink_mask(norm: np.ndarray, level: int = 200) -> np.ndarray:
     return np.where(norm < thr, 255, 0).astype(np.uint8)
 
 
-def remove_border_noise(mask: np.ndarray, margin_frac: float = 0.02) -> np.ndarray:
-    """Entfernt grosse/dunkle Flaechen am Bildrand (Scannerdeckel, Schatten)."""
-    h, w = mask.shape
-    out = mask.copy()
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
-    mh, mw = int(h * margin_frac), int(w * margin_frac)
-    for i in range(1, n):
-        x, y, bw, bh, area = stats[i]
-        touches = x <= mw or y <= mh or x + bw >= w - mw or y + bh >= h - mh
-        huge = bw > w * 0.3 or bh > h * 0.3
-        if touches or huge:
-            out[labels == i] = 0
-    return out
-
-
 def paper_mask(gray: np.ndarray, erode_frac: float = 0.025) -> np.ndarray:
     """Maske der Papierflaeche (255) - schwarze Scanraender/Deckel werden ausgeschlossen."""
     small = cv2.GaussianBlur(gray, (0, 0), 3)
@@ -135,8 +121,3 @@ def rotate(img: np.ndarray, angle: float, border: int = 255) -> np.ndarray:
     h, w = img.shape[:2]
     m = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
     return cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_CUBIC, borderValue=border)
-
-
-def rotation_matrix(shape, angle: float) -> np.ndarray:
-    h, w = shape[:2]
-    return cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)

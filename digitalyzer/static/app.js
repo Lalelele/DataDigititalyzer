@@ -4,7 +4,8 @@
 const COLORS = { ok: "#2e9e5b", pruefen: "#e0a800", fehler: "#d93025", bestaetigt: "#1a73e8", korrigiert: "#8e44ad" };
 const LABEL = { ok: "ok", pruefen: "prüfen", fehler: "Regelverstoß", bestaetigt: "bestätigt", korrigiert: "korrigiert" };
 const OPEN = new Set(["pruefen", "fehler"]);
-const CAND_NAMES = { ocr1: "Texterkennung (1,5×)", ocr2: "Texterkennung (2,5×)", ziffern: "gelernte Ziffernformen" };
+// Bildvarianten der Texterkennung wie in pipeline.process (Standardeinstellungen)
+const CAND_NAMES = { ocr1: "Texterkennung (2,5×)", ocr2: "Texterkennung (3×, geglättet)", ziffern: "gelernte Ziffernformen" };
 
 // Projekt aus der Adresse /pruefen/<Projekt>
 const PID = decodeURIComponent(location.pathname.split("/").filter(Boolean)[1] || "");

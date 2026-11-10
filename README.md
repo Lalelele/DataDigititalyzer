@@ -264,6 +264,9 @@ Stand inklusive aller Korrekturen.
 ## Datenschutz
 
 Alles läuft lokal. Die App lauscht nur auf `127.0.0.1`, also nur auf dem eigenen Rechner.
+Andere Webseiten, die im selben Browser geöffnet sind, können sie nicht ansprechen: Die App
+beantwortet nur Anfragen an ihre eigene Adresse und nimmt Änderungen nur von ihren eigenen
+Seiten an.
 Neuere Versionen der ONNX Runtime (die Grundlage der Texterkennung) senden von sich aus
 Nutzungsdaten an Microsoft. Die Funktion `disable_telemetry_events()` allein verhindert das
 nicht, nachgewiesen mit ONNX Runtime 1.31. DataDigititalyzer setzt deshalb beim Start
@@ -277,6 +280,9 @@ festzustellen.
 - Das Raster ist auf **Tabellen aus gedruckten Ziffern** ausgelegt. Handschrift erkennt RapidOCR deutlich schlechter. Dann hilft vor allem der Ziffernklassifikator, wenn genug Beispiele bestätigt sind.
 - Die Paarbildung (n, Durchschnittl. Intensität) wird automatisch erkannt: abwechselnd einstellige und mehrstellige Spalten. Andere Layouts werden als reine Wertespalten gelesen.
 - Die Seiten werden **begradigt** angezeigt, nicht im ursprünglichen Winkel.
+- Eine Seite mit **nur ein oder zwei Tabellenzeilen** wird nicht als Tabelle erkannt (zu wenig Zeilen, um sie von Staub und Randmarken zu unterscheiden). Fehlen dadurch Messpunkte, meldet die Prüfung „x von y erwarteten Punkten (ABWEICHUNG)“.
+- Seiten ohne erkennbare Tabelle (Deckblatt, leere oder stark verrauschte Seite) ergeben ein leeres Raster und werden übersprungen. Quer liegende Scans ohne Drehangabe im PDF und invertierte Scans (helle Schrift auf dunklem Grund) werden nicht erkannt.
+- Nicht lesbare Dateien (beschädigt, kein PDF, unbekanntes Bildformat) werden schon beim Hochladen abgelehnt.
 - Mögliche Erweiterungen:
   - Korrekturen als Trainingsdaten für weitere Dokumente nutzen.
   - Mehrere Dokumente nacheinander automatisch auswerten (Warteschlange).

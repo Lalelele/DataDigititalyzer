@@ -257,8 +257,12 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
     cols = find_columns(mask, ch)
     if weak_mask is not None:
         mask = remove_specks(weak_mask, ch, speck) if speck > 0 else weak_mask
-    if not cols:
+    def leer() -> PageLayout:
+        # keine Tabelle erkennbar (leere Seite, Deckblatt, Rauschen): leeres Raster statt Absturz
         return PageLayout(columns=[], row_y=np.zeros((0, 0)), char_height=ch)
+
+    if not cols:
+        return leer()
 
     ext0 = extended_ranges(cols, mask.shape[1], ch)
     profiles0 = [(mask[:, a_:b_] > 0).sum(axis=1).astype(float) for a_, b_ in ext0]
@@ -299,9 +303,12 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
     if not keep_c.all():
         cols = [c for c, k in zip(cols, keep_c) if k]
         per_col = rows_per_column(cols)
+    if not cols or not any(per_col):
+        return leer()
 
     # Zeilenabstand (pitch)
-    diffs = np.concatenate([np.diff([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col if len(rr) > 2])
+    diffs = [np.diff([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col if len(rr) > 2]
+    diffs = np.concatenate(diffs) if diffs else np.zeros(0)
     diffs = diffs[diffs > ch * 0.8]
     pitch = float(np.median(diffs)) if len(diffs) else (pitch0 or ch * 1.5)
     if pitch_override > 0:
@@ -315,6 +322,8 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
         ok = _grid_consistent(row_y, pitch)
         if not ok.all():
             cols = [c for c, k in zip(cols, ok) if k]
+            if not cols:
+                return leer()
             per_col = rows_per_column(cols)
             centers = [np.array([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col]
             row_y = _match_rows(centers, pitch)
@@ -342,6 +351,8 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
             blocks[-1].append(int(r))
         else:
             blocks.append([int(r)])
+    if not blocks:
+        return leer()
     best = max(blocks, key=lambda bl: int(filled[bl].sum()))
     row_y = row_y[best[0]:best[-1] + 1]
 
