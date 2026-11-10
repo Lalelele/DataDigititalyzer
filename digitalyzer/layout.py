@@ -228,7 +228,7 @@ def find_columns(mask: np.ndarray, ch: float) -> list[tuple[int, int]]:
     # fuehrenden Ziffer zum Rest der Zahl betraegt 0 bis 0,42 Zeichenhoehen (je nach
     # Schreibmaschine/Scan), echte Spaltenluecken mindestens 2,6 Zeichenhoehen.
     # (Frueher 0,3 - zu knapp: auf einer Seite stand die '1' 5 px = 0,42 ch abgesetzt,
-    # und die Zaehlratenspalte zerfiel in zwei Spalten.)
+    # und die Spalte der Durchschnittl. Intensitaet zerfiel in zwei Spalten.)
     joined: list[list[int]] = []
     for pa, pb in parts:
         if joined and pa - joined[-1][1] < ch * 0.6 and _row_gap(mask, joined[-1][0], pa, pb, ch) < ch * 1.0:
@@ -257,8 +257,12 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
     cols = find_columns(mask, ch)
     if weak_mask is not None:
         mask = remove_specks(weak_mask, ch, speck) if speck > 0 else weak_mask
-    if not cols:
+    def leer() -> PageLayout:
+        # keine Tabelle erkennbar (leere Seite, Deckblatt, Rauschen): leeres Raster statt Absturz
         return PageLayout(columns=[], row_y=np.zeros((0, 0)), char_height=ch)
+
+    if not cols:
+        return leer()
 
     ext0 = extended_ranges(cols, mask.shape[1], ch)
     profiles0 = [(mask[:, a_:b_] > 0).sum(axis=1).astype(float) for a_, b_ in ext0]
@@ -299,9 +303,12 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
     if not keep_c.all():
         cols = [c for c, k in zip(cols, keep_c) if k]
         per_col = rows_per_column(cols)
+    if not cols or not any(per_col):
+        return leer()
 
     # Zeilenabstand (pitch)
-    diffs = np.concatenate([np.diff([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col if len(rr) > 2])
+    diffs = [np.diff([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col if len(rr) > 2]
+    diffs = np.concatenate(diffs) if diffs else np.zeros(0)
     diffs = diffs[diffs > ch * 0.8]
     pitch = float(np.median(diffs)) if len(diffs) else (pitch0 or ch * 1.5)
     if pitch_override > 0:
@@ -315,6 +322,8 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
         ok = _grid_consistent(row_y, pitch)
         if not ok.all():
             cols = [c for c, k in zip(cols, ok) if k]
+            if not cols:
+                return leer()
             per_col = rows_per_column(cols)
             centers = [np.array([(r0 + r1) / 2 for r0, r1 in rr]) for rr in per_col]
             row_y = _match_rows(centers, pitch)
@@ -342,6 +351,8 @@ def analyze(mask: np.ndarray, weak_mask: np.ndarray | None = None, min_rows: int
             blocks[-1].append(int(r))
         else:
             blocks.append([int(r)])
+    if not blocks:
+        return leer()
     best = max(blocks, key=lambda bl: int(filled[bl].sum()))
     row_y = row_y[best[0]:best[-1] + 1]
 
@@ -434,6 +445,50 @@ def _match_rows(centers: list[np.ndarray], pitch: float) -> np.ndarray:
     return row_y
 
 
+def column_line(boxes) -> dict | None:
+    """Verlauf einer Spalte aus ihren erkannten Zellen (x, y, w, h).
+
+    Leicht verzogene Scans lassen Spalten etwas schraeg laufen; die geraden Spaltenbaender
+    aus dem Tintenprofil geben dann die Lage einzelner Ziffern nur ungenau wieder. Hier wird
+    die Kante der Zellen als Gerade x(y) angepasst - die rechte Kante bei rechtsbuendigen
+    Zahlen, sonst die linke, je nachdem welche weniger streut. Ausreisser (Stoerungen,
+    falsch zugeordnete Bloecke) werden in einem zweiten Durchgang nicht mitgerechnet.
+
+    Rueckgabe: {"coef": Geradenkoeffizienten (np.polyval), "kante": "rechts"/"links",
+    "lo"/"hi": linke/rechte Ausdehnung der Zahlen relativ zur Geraden (alle Zellen, die
+    den Kern der Spalte ueberlappen),
+    "breite": typische Zellbreite}; None bei weniger als drei Zellen.
+    """
+    b = np.asarray(boxes, float).reshape(-1, 4)
+    if len(b) < 3 or np.ptp(b[:, 1]) <= 0:
+        return None
+    yc = b[:, 1] + b[:, 3] / 2
+    left, right = b[:, 0], b[:, 0] + b[:, 2]
+    best = None
+    for name, kante in (("rechts", right), ("links", left)):
+        coef = np.polyfit(yc, kante, 1)
+        res = kante - np.polyval(coef, yc)
+        mad = np.median(np.abs(res - np.median(res)))
+        keep = np.abs(res - np.median(res)) <= max(2.0, 3 * mad)
+        if keep.sum() >= 3:
+            coef = np.polyfit(yc[keep], kante[keep], 1)
+        res = kante - np.polyval(coef, yc)
+        keep = np.abs(res) <= max(2.0, 3 * np.median(np.abs(res)))
+        streu = float(np.median(np.abs(res)))
+        if best is None or streu < best[0]:
+            best = (streu, name, coef, keep)
+    _, name, coef, keep = best
+    basis = np.polyval(coef, yc)
+    dl, dr = left - basis, right - basis
+    # Ausdehnung aus allen Zellen, die den Kern der Spalte ueberlappen (auch eine Ziffer mit
+    # angelagertem Staub); ein einzelner Stoerblock weit neben der Spalte wuerde das Band
+    # sonst verbreitern und zaehlt deshalb nicht mit.
+    kern_lo, kern_hi = float(np.median(dl[keep])), float(np.median(dr[keep]))
+    dabei = (dr > kern_lo) & (dl < kern_hi)
+    return {"coef": coef, "kante": name, "lo": float(np.min(dl[dabei])),
+            "hi": float(np.max(dr[dabei])), "breite": float(np.median(b[keep, 2]))}
+
+
 def _assign_segments(segs: list[tuple[int, int]], cols: list[tuple[int, int]],
                      ch: float) -> list[tuple[int, int, int]]:
     """Ordnet die Tintenbloecke einer Zeile (x-Bereiche, von links nach rechts) den Spalten zu.
@@ -441,7 +496,7 @@ def _assign_segments(segs: list[tuple[int, int]], cols: list[tuple[int, int]],
     1. Bloecke, die ein Spaltenband ueberlappen, gehoeren zur Spalte mit der groessten
        Ueberlappung.
     2. Bloecke in einer Luecke zwischen zwei Baendern (z. B. die etwas abgesetzte fuehrende
-       '1' einer vierstelligen Zaehlrate) gehoeren zu dem *benachbarten Tintenblock* mit der
+       '1' einer vierstelligen Durchschnittl. Intensitaet) gehoeren zu dem *benachbarten Tintenblock* mit der
        kleineren Luecke - Ziffern einer Zahl stehen dichter beieinander als zwei Zahlen.
        Der Abstand zum Spaltenband allein ist hier unzuverlaessig: er unterscheidet sich oft
        nur um wenige Pixel.
@@ -532,4 +587,20 @@ def _build_cells(mask: np.ndarray, lay: PageLayout) -> list[Cell]:
                 ya = int(yc - lay.char_height * 0.6)
                 yb = int(yc + lay.char_height * 0.6)
             cells.append(Cell(r, c, (int(xa), int(ya), int(xb - xa), int(yb - ya))))
+    # Leere Zellen (Wert erwartet, aber keine Tinte gefunden) dorthin setzen, wo die Spalte in
+    # dieser Zeile tatsaechlich verlaeuft - nicht an das gerade Profilband, das bei schraeg
+    # laufenden Spalten um eine Ziffernbreite daneben liegen kann. Die Box dient in der
+    # Pruefung als Bildausschnitt fuer die Eingabe von Hand.
+    for c in range(len(cols)):
+        line = column_line([cell.box for cell in cells if cell.col == c and not cell.empty])
+        if line is None:
+            continue
+        for cell in cells:
+            if cell.col != c or not cell.empty:
+                continue
+            x, y, w, h = cell.box
+            kante = float(np.polyval(line["coef"], y + h / 2))
+            breite = max(line["breite"], lay.char_height * 0.6)
+            xa = kante - breite if line["kante"] == "rechts" else kante
+            cell.box = (int(round(xa)), y, int(round(breite)), h)
     return cells

@@ -6,7 +6,7 @@ Wert behält seine Position im Scan, damit ein Mensch ihn **direkt neben dem Ori
 kontrollieren kann.
 
 Entwickelt und getestet an Messprotokollen der Neutronenbeugung. Jede Zeile enthält 10 Paare
-aus *Detektoranzahl n* und *Zählrate*. Der Seitenkopf nennt Probe, Wellenlänge, Start- und
+aus *Detektoranzahl n* und *Durchschnittl. Intensität*. Der Seitenkopf nennt Probe, Wellenlänge, Start- und
 Endwinkel sowie die Schrittweite.
 
 ---
@@ -59,7 +59,7 @@ Die App öffnet sich im Browser. Sie läuft nur lokal unter `http://127.0.0.1:87
 schwarze Fenster muss offen bleiben, sein Schließen beendet die App.
 
 1. **Dokument auswählen:** links „PDF oder Bild auswählen …“ oder die Datei ins Fenster ziehen. Jedes Dokument wird ein Projekt im **Arbeitsordner** (Standard: `DataDigititalyzer` im Benutzerordner, z. B. `C:\Users\<Name>\DataDigititalyzer`).
-2. **Einstellungen prüfen:** Die **Vorschau** zeigt sofort die begradigte Seite mit den erkannten Spalten (blau), Zellen (rot) und Zeilennummern (grün), dazu Winkel, Spalten-, Zeilen- und Zellenzahl. Jede Änderung einer Einstellung aktualisiert die Vorschau. Siehe [Einstellungen](#einstellungen).
+2. **Einstellungen prüfen:** Die **Vorschau** zeigt sofort die begradigte Seite mit den erkannten Spalten (blau, dem Verlauf der Spalte folgend und nur über die Tabellenhöhe), Zellen (rot), leeren Zellen (blaue Rahmen: Wert erwartet, aber keine Tinte gefunden) und Zeilennummern (grün), dazu Winkel, Spalten-, Zeilen- und Zellenzahl. Jede Änderung einer Einstellung aktualisiert die Vorschau. Siehe [Einstellungen](#einstellungen).
 3. **Scan starten:** Die Erkennung läuft im Hintergrund mit Fortschrittsanzeige (etwa 10 s pro Seite).
 4. **Prüfung öffnen:** offene Punkte durchgehen (Taste **N**) und mit **Enter** bestätigen oder Ziffern tippen und mit **Enter** korrigieren.
 5. **Exportieren** (oben rechts in der Prüfung): standardmäßig die **Tabelle wie im Scan** als CSV (siehe [Export](#export)).
@@ -88,7 +88,7 @@ Normalerweise ist nichts einzustellen. Bei schlechten Scans hilft die Vorschau b
 | Sehr kleine Schrift / niedrige Auflösung | **Bild vergrößern** auf 1,5 oder 2 |
 | Dünne, zerrissene Ziffern werden falsch gelesen | **Glättung für die Texterkennung** (Standard 0,7) |
 | Kopf (Startwinkel, Schritt) unlesbar oder fehlt | **Kopfangaben** eintragen |
-| Spalten nicht als (n, Zählrate)-Paare erkannt | **Paare** auf „ja“ setzen |
+| Spalten nicht als (n, Durchschnittl. Intensität)-Paare erkannt | **Paare** auf „ja“ setzen |
 | Eine Randspalte fehlt (Vorschau zeigt 19 statt 20 Spalten) bei stark gewölbtem Blatt | **Drehwinkel** in Schritten von 0,1° nachstellen, bis die Zeilen am betroffenen Rand gerade liegen; notfalls die Seite flacher neu scannen |
 
 Die Einstellungen werden je Projekt gespeichert (`info.json`).
@@ -116,7 +116,7 @@ Ein vorhandenes Projekt wird nie stillschweigend überschrieben.
 |---|---|
 | **Prüftabelle** (F1) | Jede Zelle zeigt den **Bildausschnitt aus dem Scan** und **direkt daneben den erkannten Wert**, zeilengetreu wie im Original. Die Farben zeigen den Status. Mit „nur Zeilen mit offenen Punkten“ bleiben nur die Stellen übrig, die geprüft werden müssen. |
 | **Seite** (F2) | Die ganze Seite mit fünf Modi: **Original + Werte** (Wert farbig neben jeder Zahl), **Nur Original**, **Nachgezeichnet**, **Blinken** und **Differenz** (siehe unten). Ein Klick auf eine Zahl wählt die Zelle aus. |
-| **Diagramm** (F3) | Die erkannten Zählraten über 2θ. Lesefehler fallen dort als Spitzen oder Einbrüche auf. Ein Klick auf einen Punkt springt zur Zelle. |
+| **Diagramm** (F3) | Die erkannten Durchschnittl. Intensitäten über 2θ. Lesefehler fallen dort als Spitzen oder Einbrüche auf. Ein Klick auf einen Punkt springt zur Zelle. |
 
 Die **Detailspalte** rechts zeigt für die gewählte Zelle:
 - einen vergrößerten Ausschnitt mit den Nachbarzellen,
@@ -181,7 +181,7 @@ PDF ─► Seitenbild ─► Papier finden ─► Hintergrund ─► Schräglage
 |---|---|
 | Anzahl der Messpunkte = (Ende − Start) / Schritt + 1 | verlorene oder doppelte Zeilen |
 | Detektoranzahl n liegt zwischen 1 und 9 und ändert sich nur um ±1; ein einzelner abweichender Wert (5‑3‑5) ist ein Lesefehler und wird mit Vorschlag markiert | fast jeden Lesefehler in der n-Spalte |
-| Zählrate gegen ihre Nachbarn im Winkelverlauf (auch über Zeilen- und Seitenumbrüche hinweg): grobe Sprünge nach oben, Einbrüche > 4σ (Poisson) nach unten; Peakspitzen sind ausgenommen | fehlende oder zusätzliche Ziffern, Ziffernverwechslungen |
+| Durchschnittl. Intensität gegen ihre Nachbarn im Winkelverlauf (auch über Zeilen- und Seitenumbrüche hinweg): grobe Sprünge nach oben, Einbrüche > 4σ (Poisson) nach unten; Peakspitzen sind ausgenommen | fehlende oder zusätzliche Ziffern, Ziffernverwechslungen |
 | Kopfangaben gegen die Punktzahl | z. B. „5“ statt „0.05“ (verlorener Dezimalpunkt) |
 
 ---
@@ -212,22 +212,22 @@ beiden Fällen sind **alle** Abweichungen markiert.
 
 | Format | Inhalt |
 |---|---|
-| **Tabelle wie im Scan** (Standard) | Eine Zeile je Scanzeile, die Werte in der Reihenfolge des Originals (`n;Zählrate;n;Zählrate;…`), ohne Überschrift und Zusatzspalten. Die Seiten werden lückenlos aneinandergehängt, die letzte unvollständige Zeile ist entsprechend kürzer. Eine unlesbare Zelle bleibt als leeres Feld stehen, damit alle anderen Werte an ihrem Platz bleiben. |
-| **Messpunkte** | Eine Zeile je Messpunkt: Messreihe, Index, 2θ, n, Zählrate, statistischer Fehler (`Stat_Fehler`), Seite, Zeile, Spalte, Status beider Zellen, Hinweise. Damit ist jeder Wert auf seine Stelle im Scan zurückführbar. |
-| **.xy** | Zwei Spalten: 2θ und Zählrate, für Auswerteprogramme. |
-| **.xye** | Drei Spalten: 2θ, Zählrate und statistischer Fehler, durch Leerzeichen getrennt, ohne Kopfzeile. Lesbar u. a. für GSAS-II, FullProf, TOPAS und Jana. Messpunkte ohne lesbare Zählrate oder ohne lesbares n fehlen, weil ihr Fehler nicht bestimmbar ist; die Kommandozeile meldet ihre Anzahl. Vorher in der Prüfung korrigieren. |
+| **Tabelle wie im Scan** (Standard) | Eine Zeile je Scanzeile, die Werte in der Reihenfolge des Originals (`n;Durchschnittl. Intensität;n;Durchschnittl. Intensität;…`), ohne Überschrift und Zusatzspalten. Die Seiten werden lückenlos aneinandergehängt, die letzte unvollständige Zeile ist entsprechend kürzer. Eine unlesbare Zelle bleibt als leeres Feld stehen, damit alle anderen Werte an ihrem Platz bleiben. |
+| **Messpunkte** | Eine Zeile je Messpunkt: Messreihe, Index, 2θ, n, Durchschnittl. Intensität, statistischer Fehler (`Stat_Fehler`), Seite, Zeile, Spalte, Status beider Zellen, Hinweise. Damit ist jeder Wert auf seine Stelle im Scan zurückführbar. |
+| **.xy** | Zwei Spalten: 2θ und Durchschnittl. Intensität, für Auswerteprogramme. |
+| **.xye** | Drei Spalten: 2θ, Durchschnittl. Intensität und statistischer Fehler, durch Leerzeichen getrennt, ohne Kopfzeile. Lesbar u. a. für GSAS-II, FullProf, TOPAS und Jana. Messpunkte ohne lesbare Durchschnittl. Intensität oder ohne lesbares n fehlen, weil ihr Fehler nicht bestimmbar ist; die Kommandozeile meldet ihre Anzahl. Vorher in der Prüfung korrigieren. |
 
 ### Statistischer Fehler
 
-Die Zählrate Z ist je Detektor normiert: Zu einem Messpunkt haben n Detektoren beigetragen,
-tatsächlich registriert wurden also N = Z · n Ereignisse. Nach der Poisson-Statistik ist
-σ(N) = √N, für die Zählrate folgt
+Die Durchschnittl. Intensität I ist je Detektor normiert: Zu einem Messpunkt haben n Detektoren
+beigetragen, tatsächlich registriert wurden also N = I · n Ereignisse. Nach der
+Poisson-Statistik ist σ(N) = √N, für die Durchschnittl. Intensität folgt
 
-    σ(Z) = √(Z · n) / n = √(Z / n)
+    σ(I) = √(I · n) / n = √(I / n)
 
-Bei gleicher Zählrate ist der Fehler also umso kleiner, je mehr Detektoren beteiligt waren
-(Beispiel: Z = 100 → σ = 5 bei n = 4, σ = 3,54 bei n = 8). Bei Z = 0 wird N = 1 angesetzt,
-damit der Punkt in einer Anpassung kein unendliches Gewicht erhält. Ohne lesbares n bleibt
+Bei gleicher Durchschnittl. Intensität ist der Fehler also umso kleiner, je mehr Detektoren
+beteiligt waren (Beispiel: I = 100 → σ = 5 bei n = 4, σ = 3,54 bei n = 8). Bei I = 0 wird
+N = 1 angesetzt, damit der Punkt in einer Anpassung kein unendliches Gewicht erhält. Ohne lesbares n bleibt
 der Fehler leer. Der Fehler wird mit vier Nachkommastellen ausgegeben.
 
 Für Excel mit deutschen Einstellungen wird das Semikolon als Trenner verwendet,
@@ -264,6 +264,9 @@ Stand inklusive aller Korrekturen.
 ## Datenschutz
 
 Alles läuft lokal. Die App lauscht nur auf `127.0.0.1`, also nur auf dem eigenen Rechner.
+Andere Webseiten, die im selben Browser geöffnet sind, können sie nicht ansprechen: Die App
+beantwortet nur Anfragen an ihre eigene Adresse und nimmt Änderungen nur von ihren eigenen
+Seiten an.
 Neuere Versionen der ONNX Runtime (die Grundlage der Texterkennung) senden von sich aus
 Nutzungsdaten an Microsoft. Die Funktion `disable_telemetry_events()` allein verhindert das
 nicht, nachgewiesen mit ONNX Runtime 1.31. DataDigititalyzer setzt deshalb beim Start
@@ -275,8 +278,11 @@ festzustellen.
 ## Grenzen und Ideen
 
 - Das Raster ist auf **Tabellen aus gedruckten Ziffern** ausgelegt. Handschrift erkennt RapidOCR deutlich schlechter. Dann hilft vor allem der Ziffernklassifikator, wenn genug Beispiele bestätigt sind.
-- Die Paarbildung (n, Zählrate) wird automatisch erkannt: abwechselnd einstellige und mehrstellige Spalten. Andere Layouts werden als reine Wertespalten gelesen.
+- Die Paarbildung (n, Durchschnittl. Intensität) wird automatisch erkannt: abwechselnd einstellige und mehrstellige Spalten. Andere Layouts werden als reine Wertespalten gelesen.
 - Die Seiten werden **begradigt** angezeigt, nicht im ursprünglichen Winkel.
+- Eine Seite mit **nur ein oder zwei Tabellenzeilen** wird nicht als Tabelle erkannt (zu wenig Zeilen, um sie von Staub und Randmarken zu unterscheiden). Fehlen dadurch Messpunkte, meldet die Prüfung „x von y erwarteten Punkten (ABWEICHUNG)“.
+- Seiten ohne erkennbare Tabelle (Deckblatt, leere oder stark verrauschte Seite) ergeben ein leeres Raster und werden übersprungen. Quer liegende Scans ohne Drehangabe im PDF und invertierte Scans (helle Schrift auf dunklem Grund) werden nicht erkannt.
+- Nicht lesbare Dateien (beschädigt, kein PDF, unbekanntes Bildformat) werden schon beim Hochladen abgelehnt.
 - Mögliche Erweiterungen:
   - Korrekturen als Trainingsdaten für weitere Dokumente nutzen.
   - Mehrere Dokumente nacheinander automatisch auswerten (Warteschlange).

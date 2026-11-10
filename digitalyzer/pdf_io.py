@@ -14,49 +14,72 @@ def _decode(data: bytes) -> np.ndarray | None:
     return cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
 
 
-def load_pages(path: str | Path, render_dpi: int = 300) -> list[np.ndarray]:
-    """Liefert je Seite ein Graustufenbild.
+def _page_image(doc, page, render_dpi: int) -> np.ndarray:
+    """Graustufenbild einer PDF-Seite.
 
-    Bei gescannten PDFs wird das eingebettete Scanbild in *Originalaufloesung*
-    entnommen (kein Qualitaetsverlust durch erneutes Rendern). Enthaelt eine Seite
-    mehrere Bilder oder Vektorinhalt, wird sie mit `render_dpi` gerendert.
+    Bei gescannten PDFs wird das eingebettete Scanbild in *Originalaufloesung* entnommen
+    (kein Qualitaetsverlust durch erneutes Rendern). Das gilt nur, wenn die Seite genau ein
+    Bild enthaelt und dieses die Seite (fast) ganz bedeckt - sonst (mehrere Bilder,
+    Vektorinhalt, kleines Bild wie ein Logo auf einer Textseite, nicht lesbares Bildformat)
+    wird die Seite mit `render_dpi` gerendert.
     """
-    path = Path(path)
-    if path.suffix.lower() in IMAGE_EXT:
-        # imdecode statt imread: funktioniert unter Windows auch mit Umlauten im Pfad
-        img = _decode(path.read_bytes())
-        if img is None:
-            raise ValueError(f"Bild kann nicht gelesen werden: {path}")
-        return [img]
-
     import pymupdf  # PyMuPDF
 
-    pages: list[np.ndarray] = []
-    with pymupdf.open(path) as doc:
-        for page in doc:
-            imgs = page.get_images(full=True)
-            img = None
-            if len(imgs) == 1:
-                info = doc.extract_image(imgs[0][0])
-                img = _decode(info["image"])
-                # Seitendrehung im PDF beruecksichtigen
-                rot = page.rotation % 360
-                if img is not None and rot:
-                    img = np.rot90(img, k={90: 3, 180: 2, 270: 1}[rot]).copy()
-            if img is None:
-                pix = page.get_pixmap(dpi=render_dpi, colorspace=pymupdf.csGRAY)
-                img = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width).copy()
-            pages.append(img)
-    return pages
+    img = None
+    imgs = page.get_images(full=True)
+    if len(imgs) == 1:
+        rects = page.get_image_rects(imgs[0][0])
+        page_area = abs(page.rect)
+        covered = sum(abs(r & page.rect) for r in rects) / page_area if page_area else 0.0
+        if covered >= 0.85:
+            info = doc.extract_image(imgs[0][0])
+            img = _decode(info["image"])
+            # Seitendrehung im PDF beruecksichtigen
+            rot = page.rotation % 360
+            if img is not None and rot:
+                img = np.rot90(img, k={90: 3, 180: 2, 270: 1}[rot]).copy()
+    if img is None:
+        pix = page.get_pixmap(dpi=render_dpi, colorspace=pymupdf.csGRAY)
+        img = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width).copy()
+    return img
+
+
+def _open_pdf(path: Path):
+    """Oeffnet eine PDF-Datei; nicht lesbare Dateien ergeben eine verstaendliche Meldung."""
+    import pymupdf
+
+    try:
+        doc = pymupdf.open(path)
+    except Exception as e:
+        raise ValueError("PDF kann nicht gelesen werden (beschaedigt oder kein PDF).") from e
+    if doc.page_count == 0:
+        doc.close()
+        raise ValueError("PDF enthaelt keine Seiten.")
+    return doc
+
+
+def load_pages(path: str | Path, render_dpi: int = 300) -> list[np.ndarray]:
+    """Liefert je Seite ein Graustufenbild (siehe `_page_image`)."""
+    path = Path(path)
+    if path.suffix.lower() in IMAGE_EXT:
+        return [_load_image(path)]
+    with _open_pdf(path) as doc:
+        return [_page_image(doc, page, render_dpi) for page in doc]
+
+
+def _load_image(path: Path) -> np.ndarray:
+    # imdecode statt imread: funktioniert unter Windows auch mit Umlauten im Pfad
+    img = _decode(path.read_bytes())
+    if img is None or min(img.shape[:2]) == 0:
+        raise ValueError("Bild kann nicht gelesen werden (beschaedigt oder unbekanntes Format).")
+    return img
 
 
 def page_count(path: str | Path) -> int:
     path = Path(path)
     if path.suffix.lower() in IMAGE_EXT:
         return 1
-    import pymupdf
-
-    with pymupdf.open(path) as doc:
+    with _open_pdf(path) as doc:
         return doc.page_count
 
 
@@ -64,23 +87,11 @@ def load_page(path: str | Path, index: int, render_dpi: int = 300) -> np.ndarray
     """Eine einzelne Seite laden (fuer die schnelle Vorschau)."""
     path = Path(path)
     if path.suffix.lower() in IMAGE_EXT:
-        return load_pages(path)[0]
-    import pymupdf
-
-    with pymupdf.open(path) as doc:
-        page = doc[index]
-        imgs = page.get_images(full=True)
-        img = None
-        if len(imgs) == 1:
-            info = doc.extract_image(imgs[0][0])
-            img = _decode(info["image"])
-            rot = page.rotation % 360
-            if img is not None and rot:
-                img = np.rot90(img, k={90: 3, 180: 2, 270: 1}[rot]).copy()
-        if img is None:
-            pix = page.get_pixmap(dpi=render_dpi, colorspace=pymupdf.csGRAY)
-            img = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width).copy()
-        return img
+        return _load_image(path)
+    with _open_pdf(path) as doc:
+        if not 0 <= index < doc.page_count:
+            raise KeyError(f"Seite {index + 1} gibt es nicht (das Dokument hat {doc.page_count} Seiten).")
+        return _page_image(doc, doc[index], render_dpi)
 
 
 def write_image(path: str | Path, img: np.ndarray, quality: int = 92) -> None:

@@ -1,4 +1,4 @@
-"""Erzeugt kuenstliche Scanseiten im Format (n, Zaehlrate) x 10 Paare je Zeile.
+"""Erzeugt kuenstliche Scanseiten im Format (n, Durchschnittl. Intensitaet) x 10 Paare je Zeile.
 
 So lassen sich Raster, Begradigung und Erkennung ohne echte (ggf. vertrauliche)
 Messdaten testen - mit bekannter Wahrheit.
@@ -35,7 +35,7 @@ def render_page(pairs: list[tuple[int, int]], header: bool = True, pairs_per_row
     Seite 32/33). Der Uebergang ist linear ueber die Seitenhoehe.
 
     abstand_fuehrend: zusaetzlicher Abstand (Pixel) zwischen der fuehrenden Ziffer und dem
-    Rest drei- und mehrstelliger Zaehlraten ('1 03' statt '103'), wie auf Seite 4 des
+    Rest drei- und mehrstelliger Durchschnittl. Intensitaeten ('1 03' statt '103'), wie auf Seite 4 des
     Neutronenbeugungs-Scans (paper-004)."""
     W, H = 1650, 2300
     img = np.full((H, W), 245, np.uint8)
@@ -49,7 +49,7 @@ def render_page(pairs: list[tuple[int, int]], header: bool = True, pairs_per_row
     col_x = []
     x = 175
     for _ in range(pairs_per_row):
-        col_x.append((x, x + 70))  # n links, Zaehlrate rechtsbuendig
+        col_x.append((x, x + 70))  # n links, Durchschnittl. Intensitaet rechtsbuendig
         x += 128
     for i in range(0, len(pairs), pairs_per_row):
         for k, (n, c) in enumerate(pairs[i:i + pairs_per_row]):

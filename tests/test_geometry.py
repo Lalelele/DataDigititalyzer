@@ -92,8 +92,8 @@ def test_kontrastausgleich_laesst_kraeftige_tinte_unveraendert():
 
 
 def test_abgesetzte_fuehrende_ziffer_gehoert_zur_zahl():
-    # Vierstellige Zaehlrate, deren fuehrende '1' etwas abgesetzt in der Luecke zwischen
-    # n-Spalte und Zaehlratenspalte steht ('8' | '1' '157'). Sie liegt dem n-Band nur
+    # Vierstellige Durchschnittl. Intensitaet, deren fuehrende '1' etwas abgesetzt in der Luecke zwischen
+    # n-Spalte und Spalte der Durchschnittl. Intensitaet steht ('8' | '1' '157'). Sie liegt dem n-Band nur
     # wenige Pixel naeher, gehoert aber zur Zahl rechts (Seite 2, Zeile 65 im Testscan).
     from digitalyzer.layout import _assign_segments
     cols = [(862, 911), (912, 958), (984, 1036)]
@@ -105,7 +105,7 @@ def test_abgesetzte_fuehrende_ziffer_gehoert_zur_zahl():
 @pytest.mark.parametrize("abstand", [3, 5])
 def test_abgesetzte_fuehrende_ziffer_bildet_keine_eigene_spalte(abstand):
     # Seite 4 des Neutronenbeugungs-Scans (paper-004): die fuehrende Ziffer dreistelliger
-    # Zaehlraten steht etwas abgesetzt ('1 03'). Viele dreistellige Werte bilden im
+    # Durchschnittl. Intensitaeten steht etwas abgesetzt ('1 03'). Viele dreistellige Werte bilden im
     # Spaltenprofil ein eigenes schmales Band, das wieder mit der Zahl vereinigt werden muss
     # (Regression: 22 statt 20 Spalten, die '1' landete in einer eigenen Spalte).
     rng = np.random.default_rng(3)
@@ -114,3 +114,60 @@ def test_abgesetzte_fuehrende_ziffer_bildet_keine_eigene_spalte(abstand):
     assert len(lay.columns) == 20
     assert lay.row_y.shape[0] == 40
     assert sum(not c.empty for c in lay.cells) == 800
+
+
+def test_column_line_folgt_schraeger_spalte():
+    # rechtsbuendige Zahlen unterschiedlicher Laenge, Spalte laeuft schraeg (x waechst mit y)
+    from digitalyzer.layout import column_line
+    boxes = []
+    for i in range(30):
+        y = 100 + 21 * i
+        rechts = 500 + 0.02 * y
+        w = 22 if i % 3 else 33  # zwei- und dreistellig
+        boxes.append((rechts - w, y, w, 15))
+    boxes.append((300, 400, 10, 15))  # Ausreisser (Stoerung)
+    line = column_line(boxes)
+    assert line["kante"] == "rechts"
+    assert abs(np.polyval(line["coef"], 500) - (500 + 0.02 * 500)) < 1.0
+    assert line["lo"] == pytest.approx(-33, abs=1.5) and line["hi"] == pytest.approx(0, abs=1.5)
+
+
+def test_leere_zelle_liegt_auf_dem_verlauf_der_spalte():
+    # Gescherte Seite (Spalten laufen schraeg) mit einer fehlenden Durchschnittl. Intensitaet. Die leere Zelle
+    # muss dort liegen, wo die Spalte in dieser Zeile verlaeuft - wie ihre Nachbarn darueber
+    # und darunter -, nicht am geraden Profilband (sonst zeigt die Pruefung den falschen
+    # Bildausschnitt und die Vorschau eine Box neben der Ziffer).
+    import cv2
+    pairs = make_series(400)
+    pairs[155] = (pairs[155][0], "")  # Zeile 16, Paar 6: Durchschnittl. Intensitaet fehlt
+    img = render_page(pairs)
+    h, w = img.shape
+    img = cv2.warpAffine(img, np.float32([[1, 0.02, 0], [0, 1, 0]]), (w + 60, h), borderValue=35)
+    lay = prepare_page(img).layout
+    leer = [c for c in lay.cells if c.empty]
+    assert [(c.row, c.col) for c in leer] == [(15, 11)]
+    c = leer[0]
+    nachbarn = [d.box for d in lay.cells if d.col == c.col and abs(d.row - c.row) == 1]
+    erwartet = np.mean([b[0] + b[2] for b in nachbarn])  # rechtsbuendig: rechte Kante
+    assert abs(c.box[0] + c.box[2] - erwartet) <= 2
+
+
+def test_vorschau_spaltenumriss_nur_ueber_die_tabelle():
+    from digitalyzer.pipeline import column_outlines
+    pg = prepare_page(render_page(make_series(400), angle=1.0))
+    lay = pg.layout
+    umrisse = column_outlines(lay)
+    assert len(umrisse) == 20
+    oben, unten = np.nanmin(lay.row_y), np.nanmax(lay.row_y)
+    for poly, c in zip(umrisse, range(20)):
+        assert poly[:, 1].min() >= oben - lay.pitch and poly[:, 1].max() <= unten + lay.pitch
+        # jede Zelle der Spalte liegt (mit 1 px Toleranz) im Umriss
+        for cell in (d for d in lay.cells if d.col == c and not d.empty):
+            x, y, w, h = cell.box
+            for px, py in ((x, y + h / 2), (x + w, y + h / 2)):
+                assert cv2_inside(poly, px, py) >= -1.5
+
+
+def cv2_inside(poly, x, y):
+    import cv2
+    return cv2.pointPolygonTest(poly.reshape(-1, 1, 2).astype(np.float32), (float(x), float(y)), True)

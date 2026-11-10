@@ -13,6 +13,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from .export import FORMATS
+
 ALIASES = {"start": "app", "process": "analysieren", "analyse": "analysieren", "review": "pruefen", "prüfen": "pruefen",
            "export": "exportieren"}
 
@@ -57,10 +59,10 @@ def main(argv: list[str] | None = None) -> int:
 
     e = sub.add_parser("exportieren", help="Messwerte als CSV, .xy oder .xye schreiben")
     e.add_argument("ordner", type=Path)
-    e.add_argument("--format", choices=["tabelle", "messpunkte", "xy", "xye"], default="tabelle",
+    e.add_argument("--format", choices=list(FORMATS), default="tabelle",
                    help="tabelle: wie im Scan (Standard); "
                         "messpunkte: eine Zeile je Punkt mit 2Theta, Fehler, Status und Hinweisen; "
-                        "xy: 2Theta und Zaehlrate; xye: 2Theta, Zaehlrate und statistischer Fehler")
+                        "xy: 2Theta und Durchschnittl. Intensitaet; xye: 2Theta, Durchschnittl. Intensitaet und statistischer Fehler")
     e.add_argument("-o", "--ziel", type=Path, help="Zieldatei; Standard: <Ordner>/tabelle.csv, messpunkte.csv, messwerte.xy bzw. messwerte.xye")
     e.add_argument("--international", action="store_true", help="Komma als Trenner, Punkt als Dezimalzeichen")
 
@@ -78,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         import shutil
 
         from .pipeline import PROJECT_FILE
-        outs = []
+        outs, fehler = [], 0
         for src in args.scan:
             out = args.ausgabe if (args.ausgabe and len(args.scan) == 1) else \
                 (args.ausgabe / src.stem if args.ausgabe else _default_out(src))
@@ -95,13 +97,20 @@ def main(argv: list[str] | None = None) -> int:
                 backup = out / f"projekt_{datetime.datetime.now():%Y%m%d_%H%M%S}.json"
                 shutil.copy2(existing, backup)
                 print(f"Sicherung der bisherigen Pruefung: {backup}")
-            process(src, out, header_override=override or None)
+            try:
+                process(src, out, header_override=override or None)
+            except (ValueError, OSError) as e:
+                # nicht lesbare Datei: verstaendliche Meldung statt Programmabbruch, weiter mit
+                # den uebrigen Dateien
+                print(f"FEHLER {src.name}: {e}")
+                fehler += 1
+                continue
             print(f"Projektordner: {out}")
             outs.append(out)
-        if args.pruefen:
+        if args.pruefen and outs:
             from .server import serve
             serve(outs[0].resolve().parent, open_project=outs[0].resolve().name)
-        return 0
+        return 1 if fehler else 0
 
     if args.cmd == "pruefen":
         from .pipeline import PROJECT_FILE
@@ -128,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.format == "xye":
             _, ausgelassen = export.xye_rows(project)
             if ausgelassen:
-                print(f"  Achtung: {ausgelassen} Messpunkte ohne lesbare Zaehlrate oder Detektoranzahl n "
+                print(f"  Achtung: {ausgelassen} Messpunkte ohne lesbare Durchschnittl. Intensitaet oder Detektoranzahl n "
                       "fehlen in der .xye-Datei (Fehler nicht bestimmbar) - bitte in der Pruefung korrigieren.")
         return 0
     return 1

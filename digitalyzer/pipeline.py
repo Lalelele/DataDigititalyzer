@@ -12,6 +12,7 @@ import datetime as _dt
 import json
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -44,6 +45,7 @@ class PreparedPage:
 
 def prepare_page(gray: np.ndarray, settings: Settings | None = None, max_skew: float | None = None) -> PreparedPage:
     st = settings or Settings()
+    gray = pp.to_gray(gray)  # Farbbilder (3 oder 4 Kanaele) in Graustufen
     if st.vergroesserung != 1.0:
         gray = cv2.resize(gray, None, fx=st.vergroesserung, fy=st.vergroesserung,
                           interpolation=cv2.INTER_CUBIC if st.vergroesserung > 1 else cv2.INTER_AREA)
@@ -86,10 +88,42 @@ def region_mask(shape: tuple[int, int], st: Settings) -> np.ndarray:
     return m
 
 
+def column_outlines(lay) -> list[np.ndarray]:
+    """Umriss jeder erkannten Spalte fuer die Vorschau (Viereck, ganzzahlige Bildpunkte).
+
+    Die Spaltenbaender aus dem senkrechten Tintenprofil (`lay.columns`) sind gerade Streifen.
+    Leicht verzogene Scans (Restschraeglage, Scherung) lassen die Spalten aber etwas schraeg
+    laufen; ein gerader Streifen muss dann breiter sein als die Spalte und liegt stellenweise
+    neben den Ziffern. Fuer die Anzeige wird deshalb der Verlauf der Spalte aus ihren Zellen
+    bestimmt (`layout.column_line`) und die Spalte als Parallelogramm um diese Gerade
+    gezeichnet, so breit wie die Zahlen der Spalte. Hoehe: von der ersten bis zur letzten
+    Tabellenzeile (je eine halbe Zeilenhoehe Rand), nicht bis zum Seitenende.
+    Spalten mit weniger als drei Zellen: gerades Band aus `lay.columns`.
+    """
+    if not lay.columns or lay.row_y.size == 0 or not np.isfinite(lay.row_y).any():
+        return []
+    half = max(lay.pitch, lay.char_height) * 0.5
+    y_top = float(np.nanmin(lay.row_y)) - half
+    y_bot = float(np.nanmax(lay.row_y)) + half
+    rand = 2.0  # Pixel Luft um die Ziffern
+    out = []
+    for c, (x0, x1) in enumerate(lay.columns):
+        line = layout_mod.column_line([cell.box for cell in lay.cells if cell.col == c and not cell.empty])
+        if line is not None:
+            lo, hi = line["lo"] - rand, line["hi"] + rand
+            xs_top, xs_bot = np.polyval(line["coef"], y_top), np.polyval(line["coef"], y_bot)
+            pts = [(xs_top + lo, y_top), (xs_top + hi, y_top), (xs_bot + hi, y_bot), (xs_bot + lo, y_bot)]
+        else:
+            pts = [(x0, y_top), (x1, y_top), (x1, y_bot), (x0, y_bot)]
+        out.append(np.round(np.array(pts)).astype(np.int32))
+    return out
+
+
 def preview(gray: np.ndarray, settings: Settings | None = None, max_width: int = 1400) -> tuple[bytes, dict]:
     """Schnelle Vorschau (ohne Texterkennung): begradigte Seite mit erkanntem Raster.
 
-    Grau schraffiert = ausgeblendeter Bereich, blaue Baender = Spalten, rote Rahmen = Zellen.
+    Grau schraffiert = ausgeblendeter Bereich, blaue Baender = Spalten (dem Verlauf der Spalte
+    folgend, nur ueber die Tabellenhoehe), rote Rahmen = Zellen.
     """
     st = settings or Settings()
     pg = prepare_page(gray, st)
@@ -100,8 +134,8 @@ def preview(gray: np.ndarray, settings: Settings | None = None, max_width: int =
     shade[~keep] = (shade[~keep] * 0.55 + np.array([90, 90, 90]) * 0.45).astype(np.uint8)
     vis = shade
     over = vis.copy()
-    for x0, x1 in lay.columns:
-        cv2.rectangle(over, (x0, max(0, lay.table_top)), (x1, vis.shape[0] - 1), (255, 200, 120), -1)
+    for poly in column_outlines(lay):
+        cv2.fillPoly(over, [poly], (255, 200, 120))
     vis = cv2.addWeighted(over, 0.25, vis, 0.75, 0)
     th = max(1, int(round(vis.shape[1] / 1400)))
     for c in lay.cells:
@@ -146,7 +180,6 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
         st.schritt = header_override.get("step", st.schritt)
         st.ende = header_override.get("finish", st.ende)
     header_override = st.header_override() or None
-    (out_dir / "seiten").mkdir(parents=True, exist_ok=True)
 
     def step(frac: float, msg: str | None = None) -> None:
         if msg:
@@ -162,7 +195,8 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
             previous = None
 
     step(0.01, f"Lese {source_name or source.name} ...")
-    grays = load_pages(source)
+    grays = load_pages(source)  # vor dem Anlegen des Ordners: nicht lesbare Datei -> kein leerer Projektordner
+    (out_dir / "seiten").mkdir(parents=True, exist_ok=True)
     _log(f"  {len(grays)} Seite(n)", log)
 
     step(0.02, None)
@@ -173,6 +207,7 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
                      "settings": st.to_dict(), "pages": [], "cells": [], "series": []}
 
     # ---------------- Seiten vorbereiten, Raster erkennen, Kopf lesen ----------------
+    neue_bilder: list[str] = []
     for i, g in enumerate(grays):
         pg = prepare_page(g, st)
         pages.append(pg)
@@ -182,8 +217,11 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
              f"  Seite {i + 1}: Schraeglage {pg.angle:+.2f} Grad, {len(lay.columns)} Spalten, "
              f"{lay.row_y.shape[0]} Zeilen, {n_cells} Zellen")
         orig_name, norm_name = f"seiten/original_{i + 1:03d}.jpg", f"seiten/kontrast_{i + 1:03d}.jpg"
-        write_image(out_dir / orig_name, pg.original)
-        write_image(out_dir / norm_name, pg.norm)
+        # zunaechst unter vorlaeufigem Namen: bricht die Auswertung ab, passen die Bilder der
+        # bisherigen Auswertung weiter zu deren Zellpositionen (Drehwinkel, Vergroesserung)
+        for name, bild in ((orig_name, pg.original), (norm_name, pg.norm)):
+            write_image(out_dir / _neu(name), bild)
+            neue_bilder.append(name)
 
         hdr = None
         if lay.header_box and lay.table_top > lay.char_height * 2:
@@ -255,7 +293,6 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
     digit_w = min(max(digit_w, ch * 0.6), ch * 0.95)
 
     glyph_meta: list[tuple[int, tuple, tuple]] = []  # (Seite, Ziffernbox, Zellbox)
-    glyph_cell: list[int] = []
     feats = []
     for j, c in enumerate(cells):
         if c["empty"]:
@@ -266,10 +303,8 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
         c["glyphs"] = [list(map(int, g)) for g in gl]
         for g in gl:
             glyph_meta.append((c["page"], g, tuple(c["box"])))
-            glyph_cell.append(j)
             feats.append(rec.glyph_feature(pages[c["page"]].norm, g, tuple(c["box"])))
     feats_arr = np.array(feats, np.float32) if feats else np.zeros((0, rec.FEAT_H * rec.FEAT_W + 1), np.float32)
-    glyph_cell_arr = np.array(glyph_cell)
 
     def training_labels(use_b: np.ndarray | None) -> np.ndarray:
         """Label je Ziffer aus sicheren Zellen (-1 = nicht zum Lernen verwenden)."""
@@ -295,7 +330,7 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
         model = rec.GlyphModel(feats_arr[train], lab[train].astype(np.int8))
         exclude = np.full(len(feats_arr), -1)
         exclude[train] = np.arange(len(train))
-        labels_b, conf_b, second_b = model.predict(feats_arr, exclude=exclude)
+        labels_b, conf_b, _ = model.predict(feats_arr, exclude=exclude)
         _log(f"  Runde {round_ + 1}: {len(train)} sichere Ziffern als Lernbeispiele", log)
 
     pos = 0
@@ -333,6 +368,8 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
         if lost > 0:
             _log(f"  {lost} fruehere Korrekturen passten zu keiner Zelle mehr (Raster geaendert)", log)
     summary = project["summary"]
+    for name in neue_bilder:
+        _ersetzen(out_dir / _neu(name), out_dir / name)
     save_project(out_dir, project)
     step(1.0, None)
     _log(f"Fertig: {summary['points']} Messpunkte, {summary['ok']} Zellen ok, {summary['pruefen']} pruefen, "
@@ -347,6 +384,25 @@ def process(source: str | Path, out_dir: str | Path, log: Callable[[str], None] 
             state = "vollstaendig" if s["points"] == s["expected"] else "ABWEICHUNG"
             _log(f"  Messreihe {s['id'] + 1}: {s['points']} von {s['expected']} erwarteten Punkten ({state})", log)
     return project
+
+
+def _ersetzen(src: Path | str, dst: Path | str, versuche: int = 20) -> None:
+    """os.replace mit kurzer Wiederholung: Unter Windows schlaegt das Ersetzen fehl, solange
+    ein anderer Vorgang die Zieldatei gerade liest (z. B. der Browser ein Seitenbild)."""
+    for i in range(versuche):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if i == versuche - 1:
+                raise
+            time.sleep(0.05 * (i + 1))
+
+
+def _neu(name: str) -> str:
+    """Vorlaeufiger Dateiname eines Seitenbilds waehrend der Auswertung."""
+    p = Path(name)
+    return str(p.with_name("neu_" + p.name))
 
 
 def carry_over(previous: dict, project: dict) -> int:
@@ -391,7 +447,7 @@ def save_project(out_dir: str | Path, project: dict) -> None:
     fd, tmp = tempfile.mkstemp(dir=out_dir, suffix=".tmp")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(project, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, out_dir / PROJECT_FILE)
+    _ersetzen(tmp, out_dir / PROJECT_FILE)
 
 
 def load_project(out_dir: str | Path) -> dict:

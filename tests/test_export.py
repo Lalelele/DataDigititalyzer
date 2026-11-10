@@ -9,13 +9,14 @@ from test_rules import _project
 
 
 def test_stat_fehler_aus_detektoranzahl():
-    # Zaehlrate je Detektor normiert: N = Z * n Ereignisse, sigma(Z) = sqrt(Z * n) / n = sqrt(Z / n)
+    # Durchschnittl. Intensitaet je Detektor normiert: N = I * n Ereignisse,
+    # sigma(I) = sqrt(I * n) / n = sqrt(I / n)
     assert export.stat_fehler("78", "6") == pytest.approx(math.sqrt(13))
     assert export.stat_fehler(100, 4) == pytest.approx(5.0)
     assert export.stat_fehler("100", "1") == pytest.approx(10.0)
-    # mehr Detektoren -> kleinerer Fehler bei gleicher Zaehlrate
+    # mehr Detektoren -> kleinerer Fehler bei gleicher Durchschnittl. Intensitaet
     assert export.stat_fehler("100", "8") < export.stat_fehler("100", "2")
-    # Z = 0: N = 1 ansetzen, damit der Punkt nicht unendlich gewichtet wird
+    # I = 0: N = 1 ansetzen, damit der Punkt nicht unendlich gewichtet wird
     assert export.stat_fehler("0", "4") == pytest.approx(0.25)
 
 
@@ -34,7 +35,7 @@ def test_messpunkte_csv_hat_fehlerspalte():
     p = _fertiges_projekt([(4, 100), (5, 80)] * 10)
     zeilen = export.to_csv(p).splitlines()
     kopf = zeilen[0].split(";")
-    assert kopf[kopf.index("Zaehlrate") + 1] == "Stat_Fehler"
+    assert kopf[kopf.index(export.INTENSITAET) + 1] == "Stat_Fehler"
     erste = dict(zip(kopf, zeilen[1].split(";")))
     assert erste["Stat_Fehler"] == "5"  # sqrt(100 / 4), deutsches Format
     zweite = dict(zip(kopf, zeilen[2].split(";")))

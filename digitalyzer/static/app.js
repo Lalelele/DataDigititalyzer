@@ -4,7 +4,8 @@
 const COLORS = { ok: "#2e9e5b", pruefen: "#e0a800", fehler: "#d93025", bestaetigt: "#1a73e8", korrigiert: "#8e44ad" };
 const LABEL = { ok: "ok", pruefen: "prüfen", fehler: "Regelverstoß", bestaetigt: "bestätigt", korrigiert: "korrigiert" };
 const OPEN = new Set(["pruefen", "fehler"]);
-const CAND_NAMES = { ocr1: "Texterkennung (1,5×)", ocr2: "Texterkennung (2,5×)", ziffern: "gelernte Ziffernformen" };
+// Bildvarianten der Texterkennung wie in pipeline.process (Standardeinstellungen)
+const CAND_NAMES = { ocr1: "Texterkennung (2,5×)", ocr2: "Texterkennung (3×, geglättet)", ziffern: "gelernte Ziffernformen" };
 
 // Projekt aus der Adresse /pruefen/<Projekt>
 const PID = decodeURIComponent(location.pathname.split("/").filter(Boolean)[1] || "");
@@ -248,7 +249,7 @@ async function renderDetail() {
   const sug = flags.find((f) => f.suggest);
   $("#d-suggest").innerHTML = sug ? `<button id="d-sugbtn">Vorschlag übernehmen: <b>${sug.suggest}</b> (V)</button>` : "";
   if (sug) $("#d-sugbtn").addEventListener("click", () => commit(sug.suggest));
-  const kind = c.kind === "n" ? "Detektoranzahl n" : "Zählrate";
+  const kind = c.kind === "n" ? "Detektoranzahl n" : "Durchschnittl. Intensität";
   const meta = [`${kind}`];
   if (c.point != null) meta.push(`Messpunkt ${c.point}${c.angle != null ? ` · 2θ = ${c.angle.toFixed(2)}°` : ""}`);
   if (c.ocr_value !== undefined && c.ocr_value !== c.value) meta.push(`ursprünglich erkannt: ${c.ocr_value || "∅"}`);
@@ -436,7 +437,7 @@ async function drawPage(scrollToSel) {
       const txt = c.value || "∅";
       const tw = ctx.measureText(txt).width;
       // Wert direkt neben die Originalzahl: einstellige n-Spalte rechts daneben,
-      // rechtsbündige Zählraten links daneben (dort ist Platz)
+      // rechtsbündige Durchschnittl. Intensitäten links daneben (dort ist Platz)
       const tx = c.kind === "n" ? x + w + 3 : x - tw - 4;
       ctx.fillStyle = "rgba(255,255,255,0.85)";
       ctx.fillRect(tx - 1, y + h / 2 - fs / 2, tw + 2, fs);
@@ -549,7 +550,7 @@ function drawPlot() {
     }
   }
   ctx.save();
-  ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Zählrate", -20, 0); ctx.restore();
+  ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("Durchschnittl. Intensität", 0, 0); ctx.restore();
   // Verlauf
   ctx.strokeStyle = "#374151"; ctx.lineWidth = 1; ctx.beginPath();
   pts.forEach((c, i) => {
@@ -594,7 +595,7 @@ $("#plot").addEventListener("mousemove", (ev) => {
   const tip = $("#plottip");
   if (!n) { tip.style.display = "none"; return; }
   const nc = S.nByPoint.get(`${n.c.series}:${n.c.point}`);
-  tip.innerHTML = `${n.c.angle != null ? "2θ " + n.c.angle.toFixed(2) + "° · " : ""}Zählrate <b>${n.c.value}</b>` +
+  tip.innerHTML = `${n.c.angle != null ? "2θ " + n.c.angle.toFixed(2) + "° · " : ""}Durchschnittl. Intensität <b>${n.c.value}</b>` +
     `${nc ? " · n " + nc.value : ""} · ${LABEL[n.c.status]} · Seite ${n.c.page + 1}, Zeile ${n.c.row + 1}`;
   tip.style.display = "block";
   tip.style.left = (n.mx + 12) + "px";
