@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--format", choices=["tabelle", "messpunkte", "xy", "xye"], default="tabelle",
                    help="tabelle: wie im Scan (Standard); "
                         "messpunkte: eine Zeile je Punkt mit 2Theta, Fehler, Status und Hinweisen; "
-                        "xy: 2Theta und Zaehlrate; xye: 2Theta, Zaehlrate und statistischer Fehler")
+                        "xy: 2Theta und Durchschnittl. Intensitaet; xye: 2Theta, Durchschnittl. Intensitaet und statistischer Fehler")
     e.add_argument("-o", "--ziel", type=Path, help="Zieldatei; Standard: <Ordner>/tabelle.csv, messpunkte.csv, messwerte.xy bzw. messwerte.xye")
     e.add_argument("--international", action="store_true", help="Komma als Trenner, Punkt als Dezimalzeichen")
 
@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.format == "xye":
             _, ausgelassen = export.xye_rows(project)
             if ausgelassen:
-                print(f"  Achtung: {ausgelassen} Messpunkte ohne lesbare Zaehlrate oder Detektoranzahl n "
+                print(f"  Achtung: {ausgelassen} Messpunkte ohne lesbare Durchschnittl. Intensitaet oder Detektoranzahl n "
                       "fehlen in der .xye-Datei (Fehler nicht bestimmbar) - bitte in der Pruefung korrigieren.")
         return 0
     return 1

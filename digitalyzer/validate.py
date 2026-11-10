@@ -20,7 +20,7 @@ HUMAN = ("bestaetigt", "korrigiert")
 def assign_kinds(project: dict) -> None:
     """Spaltentyp je Seite bestimmen: 'n' (Detektoranzahl, einstellig) oder 'count'.
 
-    Paarweise Anordnung (n, Zaehlrate) wird erkannt, wenn sich schmale einstellige und
+    Paarweise Anordnung (n, Durchschnittl. Intensitaet) wird erkannt, wenn sich schmale einstellige und
     breitere Spalten abwechseln. Sonst sind alle Spalten 'count'.
     """
     by_page: dict[int, dict[int, list[str]]] = {}
@@ -101,7 +101,7 @@ def _count_neighbours(points: list[dict], vals: list, i: int) -> tuple[int | Non
 
 
 def count_flag(v: int, prev: int | None, nxt: int | None, local: float | None = None) -> dict | None:
-    """Plausibilitaet einer Zaehlrate im Vergleich zu ihren Nachbarn im Winkelverlauf."""
+    """Plausibilitaet einer Durchschnittl. Intensitaet im Vergleich zu ihren Nachbarn im Winkelverlauf."""
     nb = [x for x in (prev, nxt) if x is not None]
     if not nb:
         return None
@@ -252,7 +252,7 @@ def validate(project: dict) -> dict:
         if (prev is not None and abs(n - prev) > 1) or (nxt is not None and abs(n - nxt) > 1):
             p["n"]["flags"].append({"sev": "error", "msg": "Detektoranzahl springt um mehr als 1"})
 
-    # --- Zaehlraten: glatter Verlauf (Poisson-Statistik), Ausreisser markieren ---
+    # --- Durchschnittl. Intensitaeten: glatter Verlauf (Poisson-Statistik), Ausreisser markieren ---
     vals = [_int(p["count"]["value"]) for p in points]
     for i, p in enumerate(points):
         v = vals[i]

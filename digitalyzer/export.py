@@ -8,21 +8,25 @@ from pathlib import Path
 
 from .validate import build_sequence
 
+# Spaltenueberschriften der Messpunkte-CSV
+INTENSITAET = "Durchschnittl. Intensität"
+STATUS_INTENSITAET = "Status_Durchschnittl. Intensität"
 
-def stat_fehler(zaehlrate, n) -> float | None:
-    """Statistischer Fehler (1 Sigma) einer Zaehlrate, die ueber n Detektoren gemittelt ist.
 
-    Die Zaehlrate Z ist je Detektor normiert; tatsaechlich registriert wurden N = Z * n
-    Ereignisse. Nach der Poisson-Statistik ist sigma(N) = sqrt(N), also
+def stat_fehler(intensitaet, n) -> float | None:
+    """Statistischer Fehler (1 Sigma) einer Durchschnittl. Intensitaet (Mittel ueber n Detektoren).
 
-        sigma(Z) = sqrt(Z * n) / n = sqrt(Z / n)
+    Die Durchschnittl. Intensitaet I ist je Detektor normiert; tatsaechlich registriert wurden
+    N = I * n Ereignisse. Nach der Poisson-Statistik ist sigma(N) = sqrt(N), also
+
+        sigma(I) = sqrt(I * n) / n = sqrt(I / n)
 
     Je mehr Detektoren zu einem Punkt beigetragen haben, desto kleiner ist sein Fehler.
-    Bei Z = 0 wird N = 1 angesetzt (sonst waere sigma = 0 und der Punkt erhielte in einer
+    Bei I = 0 wird N = 1 angesetzt (sonst waere sigma = 0 und der Punkt erhielte in einer
     Anpassung unendliches Gewicht). Ohne gueltiges n (fehlt, unlesbar, < 1) oder ohne
-    gueltige Zaehlrate: None.
+    gueltige Durchschnittl. Intensitaet: None.
     """
-    z, k = _to_int(zaehlrate), _to_int(n)
+    z, k = _to_int(intensitaet), _to_int(n)
     if z is None or k is None or z < 0 or k < 1:
         return None
     return math.sqrt(max(z * k, 1)) / k
@@ -54,13 +58,13 @@ def rows(project: dict) -> list[dict]:
             "Index": pt["index"],
             "2Theta": pt["angle"],
             "n": n["value"] if n else "",
-            "Zaehlrate": c["value"],
+            INTENSITAET: c["value"],
             "Stat_Fehler": stat_fehler(c["value"], n["value"] if n else None),
             "Seite": c["page"] + 1,
             "Zeile": c["row"] + 1,
             "Spalte": c["col"] + 1,
             "Status_n": n["status"] if n else "",
-            "Status_Zaehlrate": c["status"],
+            STATUS_INTENSITAET: c["status"],
             "Hinweise": " | ".join(notes),
         })
     return out
@@ -108,20 +112,21 @@ def to_table_csv(project: dict, international: bool = False) -> str:
 
 
 def to_xy(project: dict) -> str:
-    """Einfaches Zwei-Spalten-Format (2Theta  Zaehlrate) fuer Auswerteprogramme."""
+    """Einfaches Zwei-Spalten-Format (2Theta  Durchschnittl. Intensitaet) fuer Auswerteprogramme."""
     lines = []
     for r in rows(project):
-        if r["2Theta"] is not None and r["Zaehlrate"]:
-            lines.append(f"{r['2Theta']:.4f}  {r['Zaehlrate']}")
+        if r["2Theta"] is not None and r[INTENSITAET]:
+            lines.append(f"{r['2Theta']:.4f}  {r[INTENSITAET]}")
     return "\n".join(lines) + "\n"
 
 
 def xye_rows(project: dict) -> tuple[list[tuple[float, int, float]], int]:
-    """Punkte fuer .xye: (2Theta, Zaehlrate, Fehler). Zweiter Rueckgabewert: Anzahl der
-    Punkte, die mangels gueltiger Zaehlrate oder gueltigem n ausgelassen wurden."""
+    """Punkte fuer .xye: (2Theta, Durchschnittl. Intensitaet, Fehler). Zweiter Rueckgabewert:
+    Anzahl der Punkte, die mangels gueltiger Durchschnittl. Intensitaet oder gueltigem n
+    ausgelassen wurden."""
     out, skipped = [], 0
     for r in rows(project):
-        z = _to_int(r["Zaehlrate"])
+        z = _to_int(r[INTENSITAET])
         if r["2Theta"] is None:
             continue
         if z is None or r["Stat_Fehler"] is None:
@@ -132,7 +137,8 @@ def xye_rows(project: dict) -> tuple[list[tuple[float, int, float]], int]:
 
 
 def to_xye(project: dict) -> str:
-    """Drei Spalten (2Theta  Zaehlrate  Fehler), durch Leerzeichen getrennt, ohne Kopfzeile -
+    """Drei Spalten (2Theta  Durchschnittl. Intensitaet  Fehler), durch Leerzeichen getrennt,
+    ohne Kopfzeile -
     lesbar fuer GSAS-II, FullProf, TOPAS, Jana u. a. Der Fehler ist der statistische Fehler
     aus der Detektoranzahl n (siehe `stat_fehler`)."""
     pts, _ = xye_rows(project)

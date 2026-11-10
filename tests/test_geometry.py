@@ -92,8 +92,8 @@ def test_kontrastausgleich_laesst_kraeftige_tinte_unveraendert():
 
 
 def test_abgesetzte_fuehrende_ziffer_gehoert_zur_zahl():
-    # Vierstellige Zaehlrate, deren fuehrende '1' etwas abgesetzt in der Luecke zwischen
-    # n-Spalte und Zaehlratenspalte steht ('8' | '1' '157'). Sie liegt dem n-Band nur
+    # Vierstellige Durchschnittl. Intensitaet, deren fuehrende '1' etwas abgesetzt in der Luecke zwischen
+    # n-Spalte und Spalte der Durchschnittl. Intensitaet steht ('8' | '1' '157'). Sie liegt dem n-Band nur
     # wenige Pixel naeher, gehoert aber zur Zahl rechts (Seite 2, Zeile 65 im Testscan).
     from digitalyzer.layout import _assign_segments
     cols = [(862, 911), (912, 958), (984, 1036)]
@@ -105,7 +105,7 @@ def test_abgesetzte_fuehrende_ziffer_gehoert_zur_zahl():
 @pytest.mark.parametrize("abstand", [3, 5])
 def test_abgesetzte_fuehrende_ziffer_bildet_keine_eigene_spalte(abstand):
     # Seite 4 des Neutronenbeugungs-Scans (paper-004): die fuehrende Ziffer dreistelliger
-    # Zaehlraten steht etwas abgesetzt ('1 03'). Viele dreistellige Werte bilden im
+    # Durchschnittl. Intensitaeten steht etwas abgesetzt ('1 03'). Viele dreistellige Werte bilden im
     # Spaltenprofil ein eigenes schmales Band, das wieder mit der Zahl vereinigt werden muss
     # (Regression: 22 statt 20 Spalten, die '1' landete in einer eigenen Spalte).
     rng = np.random.default_rng(3)
@@ -133,13 +133,13 @@ def test_column_line_folgt_schraeger_spalte():
 
 
 def test_leere_zelle_liegt_auf_dem_verlauf_der_spalte():
-    # Gescherte Seite (Spalten laufen schraeg) mit einer fehlenden Zaehlrate. Die leere Zelle
+    # Gescherte Seite (Spalten laufen schraeg) mit einer fehlenden Durchschnittl. Intensitaet. Die leere Zelle
     # muss dort liegen, wo die Spalte in dieser Zeile verlaeuft - wie ihre Nachbarn darueber
     # und darunter -, nicht am geraden Profilband (sonst zeigt die Pruefung den falschen
     # Bildausschnitt und die Vorschau eine Box neben der Ziffer).
     import cv2
     pairs = make_series(400)
-    pairs[155] = (pairs[155][0], "")  # Zeile 16, Paar 6: Zaehlrate fehlt
+    pairs[155] = (pairs[155][0], "")  # Zeile 16, Paar 6: Durchschnittl. Intensitaet fehlt
     img = render_page(pairs)
     h, w = img.shape
     img = cv2.warpAffine(img, np.float32([[1, 0.02, 0], [0, 1, 0]]), (w + 60, h), borderValue=35)

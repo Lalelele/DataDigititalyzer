@@ -46,7 +46,7 @@ def test_values_correct_or_flagged(run):
     wrong_silent = 0
     wrong = 0
     for (n, c), r in zip(pairs, rows):
-        for truth, val, status in ((n, r["n"], r["Status_n"]), (c, r["Zaehlrate"], r["Status_Zaehlrate"])):
+        for truth, val, status in ((n, r["n"], r["Status_n"]), (c, r[export.INTENSITAET], r[export.STATUS_INTENSITAET])):
             if str(truth) != val:
                 wrong += 1
                 if status == "ok":
@@ -78,8 +78,8 @@ def test_table_export_matches_scan_layout(run):
     assert len(table) == 100
     assert all(len(r) == 20 for r in table)
     flat = [v for r in table for v in r]
-    # identisch mit der Messpunkt-Reihenfolge (n, Zaehlrate, n, Zaehlrate, ...)
-    seq = [v for r in export.rows(p) for v in (r["n"], r["Zaehlrate"])]
+    # identisch mit der Messpunkt-Reihenfolge (n, Durchschnittl. Intensitaet, n, Durchschnittl. Intensitaet, ...)
+    seq = [v for r in export.rows(p) for v in (r["n"], r[export.INTENSITAET])]
     assert flat == seq
     truth = [str(v) for pair in pairs for v in pair]
     assert sum(a != b for a, b in zip(flat, truth)) <= 0.03 * len(truth)

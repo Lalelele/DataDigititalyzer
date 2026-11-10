@@ -228,7 +228,7 @@ def find_columns(mask: np.ndarray, ch: float) -> list[tuple[int, int]]:
     # fuehrenden Ziffer zum Rest der Zahl betraegt 0 bis 0,42 Zeichenhoehen (je nach
     # Schreibmaschine/Scan), echte Spaltenluecken mindestens 2,6 Zeichenhoehen.
     # (Frueher 0,3 - zu knapp: auf einer Seite stand die '1' 5 px = 0,42 ch abgesetzt,
-    # und die Zaehlratenspalte zerfiel in zwei Spalten.)
+    # und die Spalte der Durchschnittl. Intensitaet zerfiel in zwei Spalten.)
     joined: list[list[int]] = []
     for pa, pb in parts:
         if joined and pa - joined[-1][1] < ch * 0.6 and _row_gap(mask, joined[-1][0], pa, pb, ch) < ch * 1.0:
@@ -485,7 +485,7 @@ def _assign_segments(segs: list[tuple[int, int]], cols: list[tuple[int, int]],
     1. Bloecke, die ein Spaltenband ueberlappen, gehoeren zur Spalte mit der groessten
        Ueberlappung.
     2. Bloecke in einer Luecke zwischen zwei Baendern (z. B. die etwas abgesetzte fuehrende
-       '1' einer vierstelligen Zaehlrate) gehoeren zu dem *benachbarten Tintenblock* mit der
+       '1' einer vierstelligen Durchschnittl. Intensitaet) gehoeren zu dem *benachbarten Tintenblock* mit der
        kleineren Luecke - Ziffern einer Zahl stehen dichter beieinander als zwei Zahlen.
        Der Abstand zum Spaltenband allein ist hier unzuverlaessig: er unterscheidet sich oft
        nur um wenige Pixel.
