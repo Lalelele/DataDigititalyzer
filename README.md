@@ -59,7 +59,7 @@ Die App öffnet sich im Browser. Sie läuft nur lokal unter `http://127.0.0.1:87
 schwarze Fenster muss offen bleiben, sein Schließen beendet die App.
 
 1. **Dokument auswählen:** links „PDF oder Bild auswählen …“ oder die Datei ins Fenster ziehen. Jedes Dokument wird ein Projekt im **Arbeitsordner** (Standard: `DataDigititalyzer` im Benutzerordner, z. B. `C:\Users\<Name>\DataDigititalyzer`).
-2. **Einstellungen prüfen:** Die **Vorschau** zeigt sofort die begradigte Seite mit den erkannten Spalten (blau), Zellen (rot) und Zeilennummern (grün), dazu Winkel, Spalten-, Zeilen- und Zellenzahl. Jede Änderung einer Einstellung aktualisiert die Vorschau. Siehe [Einstellungen](#einstellungen).
+2. **Einstellungen prüfen:** Die **Vorschau** zeigt sofort die begradigte Seite mit den erkannten Spalten (blau, dem Verlauf der Spalte folgend und nur über die Tabellenhöhe), Zellen (rot), leeren Zellen (blaue Rahmen: Wert erwartet, aber keine Tinte gefunden) und Zeilennummern (grün), dazu Winkel, Spalten-, Zeilen- und Zellenzahl. Jede Änderung einer Einstellung aktualisiert die Vorschau. Siehe [Einstellungen](#einstellungen).
 3. **Scan starten:** Die Erkennung läuft im Hintergrund mit Fortschrittsanzeige (etwa 10 s pro Seite).
 4. **Prüfung öffnen:** offene Punkte durchgehen (Taste **N**) und mit **Enter** bestätigen oder Ziffern tippen und mit **Enter** korrigieren.
 5. **Exportieren** (oben rechts in der Prüfung): standardmäßig die **Tabelle wie im Scan** als CSV (siehe [Export](#export)).

@@ -86,10 +86,42 @@ def region_mask(shape: tuple[int, int], st: Settings) -> np.ndarray:
     return m
 
 
+def column_outlines(lay) -> list[np.ndarray]:
+    """Umriss jeder erkannten Spalte fuer die Vorschau (Viereck, ganzzahlige Bildpunkte).
+
+    Die Spaltenbaender aus dem senkrechten Tintenprofil (`lay.columns`) sind gerade Streifen.
+    Leicht verzogene Scans (Restschraeglage, Scherung) lassen die Spalten aber etwas schraeg
+    laufen; ein gerader Streifen muss dann breiter sein als die Spalte und liegt stellenweise
+    neben den Ziffern. Fuer die Anzeige wird deshalb der Verlauf der Spalte aus ihren Zellen
+    bestimmt (`layout.column_line`) und die Spalte als Parallelogramm um diese Gerade
+    gezeichnet, so breit wie die Zahlen der Spalte. Hoehe: von der ersten bis zur letzten
+    Tabellenzeile (je eine halbe Zeilenhoehe Rand), nicht bis zum Seitenende.
+    Spalten mit weniger als drei Zellen: gerades Band aus `lay.columns`.
+    """
+    if not lay.columns or lay.row_y.size == 0 or not np.isfinite(lay.row_y).any():
+        return []
+    half = max(lay.pitch, lay.char_height) * 0.5
+    y_top = float(np.nanmin(lay.row_y)) - half
+    y_bot = float(np.nanmax(lay.row_y)) + half
+    rand = 2.0  # Pixel Luft um die Ziffern
+    out = []
+    for c, (x0, x1) in enumerate(lay.columns):
+        line = layout_mod.column_line([cell.box for cell in lay.cells if cell.col == c and not cell.empty])
+        if line is not None:
+            lo, hi = line["lo"] - rand, line["hi"] + rand
+            xs_top, xs_bot = np.polyval(line["coef"], y_top), np.polyval(line["coef"], y_bot)
+            pts = [(xs_top + lo, y_top), (xs_top + hi, y_top), (xs_bot + hi, y_bot), (xs_bot + lo, y_bot)]
+        else:
+            pts = [(x0, y_top), (x1, y_top), (x1, y_bot), (x0, y_bot)]
+        out.append(np.round(np.array(pts)).astype(np.int32))
+    return out
+
+
 def preview(gray: np.ndarray, settings: Settings | None = None, max_width: int = 1400) -> tuple[bytes, dict]:
     """Schnelle Vorschau (ohne Texterkennung): begradigte Seite mit erkanntem Raster.
 
-    Grau schraffiert = ausgeblendeter Bereich, blaue Baender = Spalten, rote Rahmen = Zellen.
+    Grau schraffiert = ausgeblendeter Bereich, blaue Baender = Spalten (dem Verlauf der Spalte
+    folgend, nur ueber die Tabellenhoehe), rote Rahmen = Zellen.
     """
     st = settings or Settings()
     pg = prepare_page(gray, st)
@@ -100,8 +132,8 @@ def preview(gray: np.ndarray, settings: Settings | None = None, max_width: int =
     shade[~keep] = (shade[~keep] * 0.55 + np.array([90, 90, 90]) * 0.45).astype(np.uint8)
     vis = shade
     over = vis.copy()
-    for x0, x1 in lay.columns:
-        cv2.rectangle(over, (x0, max(0, lay.table_top)), (x1, vis.shape[0] - 1), (255, 200, 120), -1)
+    for poly in column_outlines(lay):
+        cv2.fillPoly(over, [poly], (255, 200, 120))
     vis = cv2.addWeighted(over, 0.25, vis, 0.75, 0)
     th = max(1, int(round(vis.shape[1] / 1400)))
     for c in lay.cells:

@@ -434,6 +434,50 @@ def _match_rows(centers: list[np.ndarray], pitch: float) -> np.ndarray:
     return row_y
 
 
+def column_line(boxes) -> dict | None:
+    """Verlauf einer Spalte aus ihren erkannten Zellen (x, y, w, h).
+
+    Leicht verzogene Scans lassen Spalten etwas schraeg laufen; die geraden Spaltenbaender
+    aus dem Tintenprofil geben dann die Lage einzelner Ziffern nur ungenau wieder. Hier wird
+    die Kante der Zellen als Gerade x(y) angepasst - die rechte Kante bei rechtsbuendigen
+    Zahlen, sonst die linke, je nachdem welche weniger streut. Ausreisser (Stoerungen,
+    falsch zugeordnete Bloecke) werden in einem zweiten Durchgang nicht mitgerechnet.
+
+    Rueckgabe: {"coef": Geradenkoeffizienten (np.polyval), "kante": "rechts"/"links",
+    "lo"/"hi": linke/rechte Ausdehnung der Zahlen relativ zur Geraden (alle Zellen, die
+    den Kern der Spalte ueberlappen),
+    "breite": typische Zellbreite}; None bei weniger als drei Zellen.
+    """
+    b = np.asarray(boxes, float).reshape(-1, 4)
+    if len(b) < 3 or np.ptp(b[:, 1]) <= 0:
+        return None
+    yc = b[:, 1] + b[:, 3] / 2
+    left, right = b[:, 0], b[:, 0] + b[:, 2]
+    best = None
+    for name, kante in (("rechts", right), ("links", left)):
+        coef = np.polyfit(yc, kante, 1)
+        res = kante - np.polyval(coef, yc)
+        mad = np.median(np.abs(res - np.median(res)))
+        keep = np.abs(res - np.median(res)) <= max(2.0, 3 * mad)
+        if keep.sum() >= 3:
+            coef = np.polyfit(yc[keep], kante[keep], 1)
+        res = kante - np.polyval(coef, yc)
+        keep = np.abs(res) <= max(2.0, 3 * np.median(np.abs(res)))
+        streu = float(np.median(np.abs(res)))
+        if best is None or streu < best[0]:
+            best = (streu, name, coef, keep)
+    _, name, coef, keep = best
+    basis = np.polyval(coef, yc)
+    dl, dr = left - basis, right - basis
+    # Ausdehnung aus allen Zellen, die den Kern der Spalte ueberlappen (auch eine Ziffer mit
+    # angelagertem Staub); ein einzelner Stoerblock weit neben der Spalte wuerde das Band
+    # sonst verbreitern und zaehlt deshalb nicht mit.
+    kern_lo, kern_hi = float(np.median(dl[keep])), float(np.median(dr[keep]))
+    dabei = (dr > kern_lo) & (dl < kern_hi)
+    return {"coef": coef, "kante": name, "lo": float(np.min(dl[dabei])),
+            "hi": float(np.max(dr[dabei])), "breite": float(np.median(b[keep, 2]))}
+
+
 def _assign_segments(segs: list[tuple[int, int]], cols: list[tuple[int, int]],
                      ch: float) -> list[tuple[int, int, int]]:
     """Ordnet die Tintenbloecke einer Zeile (x-Bereiche, von links nach rechts) den Spalten zu.
@@ -532,4 +576,20 @@ def _build_cells(mask: np.ndarray, lay: PageLayout) -> list[Cell]:
                 ya = int(yc - lay.char_height * 0.6)
                 yb = int(yc + lay.char_height * 0.6)
             cells.append(Cell(r, c, (int(xa), int(ya), int(xb - xa), int(yb - ya))))
+    # Leere Zellen (Wert erwartet, aber keine Tinte gefunden) dorthin setzen, wo die Spalte in
+    # dieser Zeile tatsaechlich verlaeuft - nicht an das gerade Profilband, das bei schraeg
+    # laufenden Spalten um eine Ziffernbreite daneben liegen kann. Die Box dient in der
+    # Pruefung als Bildausschnitt fuer die Eingabe von Hand.
+    for c in range(len(cols)):
+        line = column_line([cell.box for cell in cells if cell.col == c and not cell.empty])
+        if line is None:
+            continue
+        for cell in cells:
+            if cell.col != c or not cell.empty:
+                continue
+            x, y, w, h = cell.box
+            kante = float(np.polyval(line["coef"], y + h / 2))
+            breite = max(line["breite"], lay.char_height * 0.6)
+            xa = kante - breite if line["kante"] == "rechts" else kante
+            cell.box = (int(round(xa)), y, int(round(breite)), h)
     return cells
