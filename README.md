@@ -213,8 +213,22 @@ beiden Fällen sind **alle** Abweichungen markiert.
 | Format | Inhalt |
 |---|---|
 | **Tabelle wie im Scan** (Standard) | Eine Zeile je Scanzeile, die Werte in der Reihenfolge des Originals (`n;Zählrate;n;Zählrate;…`), ohne Überschrift und Zusatzspalten. Die Seiten werden lückenlos aneinandergehängt, die letzte unvollständige Zeile ist entsprechend kürzer. Eine unlesbare Zelle bleibt als leeres Feld stehen, damit alle anderen Werte an ihrem Platz bleiben. |
-| **Messpunkte** | Eine Zeile je Messpunkt: Messreihe, Index, 2θ, n, Zählrate, Seite, Zeile, Spalte, Status beider Zellen, Hinweise. Damit ist jeder Wert auf seine Stelle im Scan zurückführbar. |
+| **Messpunkte** | Eine Zeile je Messpunkt: Messreihe, Index, 2θ, n, Zählrate, statistischer Fehler (`Stat_Fehler`), Seite, Zeile, Spalte, Status beider Zellen, Hinweise. Damit ist jeder Wert auf seine Stelle im Scan zurückführbar. |
 | **.xy** | Zwei Spalten: 2θ und Zählrate, für Auswerteprogramme. |
+| **.xye** | Drei Spalten: 2θ, Zählrate und statistischer Fehler, durch Leerzeichen getrennt, ohne Kopfzeile. Lesbar u. a. für GSAS-II, FullProf, TOPAS und Jana. Messpunkte ohne lesbare Zählrate oder ohne lesbares n fehlen, weil ihr Fehler nicht bestimmbar ist; die Kommandozeile meldet ihre Anzahl. Vorher in der Prüfung korrigieren. |
+
+### Statistischer Fehler
+
+Die Zählrate Z ist je Detektor normiert: Zu einem Messpunkt haben n Detektoren beigetragen,
+tatsächlich registriert wurden also N = Z · n Ereignisse. Nach der Poisson-Statistik ist
+σ(N) = √N, für die Zählrate folgt
+
+    σ(Z) = √(Z · n) / n = √(Z / n)
+
+Bei gleicher Zählrate ist der Fehler also umso kleiner, je mehr Detektoren beteiligt waren
+(Beispiel: Z = 100 → σ = 5 bei n = 4, σ = 3,54 bei n = 8). Bei Z = 0 wird N = 1 angesetzt,
+damit der Punkt in einer Anpassung kein unendliches Gewicht erhält. Ohne lesbares n bleibt
+der Fehler leer. Der Fehler wird mit vier Nachkommastellen ausgegeben.
 
 Für Excel mit deutschen Einstellungen wird das Semikolon als Trenner verwendet,
 „international“ verwendet das Komma. In der App wählt man das Format links neben
@@ -224,8 +238,8 @@ Für Excel mit deutschen Einstellungen wird das Semikolon als Trenner verwendet,
 python -m digitalyzer exportieren scan_digitalisiert
 ```
 
-Das schreibt `scan_digitalisiert/tabelle.csv`. Mit `--format messpunkte` oder `--format xy`
-entstehen die anderen Formate.
+Das schreibt `scan_digitalisiert/tabelle.csv`. Mit `--format messpunkte`, `--format xy` oder
+`--format xye` entstehen die anderen Formate (`messpunkte.csv`, `messwerte.xy`, `messwerte.xye`).
 
 Sind beim Export noch Zellen offen, fragt die App nach. Exportiert wird immer der aktuelle
 Stand inklusive aller Korrekturen.
