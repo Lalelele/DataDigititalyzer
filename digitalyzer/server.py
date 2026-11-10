@@ -357,7 +357,9 @@ def make_handler(app: App):
         def _export(self, pid: str, fmt: str):
             rs = app.review(pid)
             with rs.lock:
-                if fmt == "xy":
+                if fmt == "xye":
+                    body, name, ctype = export.to_xye(rs.project), "messwerte.xye", "text/plain; charset=utf-8"
+                elif fmt == "xy":
                     body, name, ctype = export.to_xy(rs.project), "messwerte.xy", "text/plain; charset=utf-8"
                 elif fmt.startswith("tabelle"):
                     body = "﻿" + export.to_table_csv(rs.project, international=fmt == "tabelle-int")

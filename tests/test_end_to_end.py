@@ -76,12 +76,16 @@ def test_table_export_matches_scan_layout(run):
     table = export.table_rows(p)
     # 2 Seiten x 50 Zeilen x 10 Paare
     assert len(table) == 100
-    assert all(len(r) == 20 for r in table)
-    flat = [v for r in table for v in r]
-    # identisch mit der Messpunkt-Reihenfolge (n, Zaehlrate, n, Zaehlrate, ...)
+    assert all(len(r) == 30 for r in table)  # 10 x (n, Zaehlrate, statistischer Fehler)
+    # Werte ohne Fehlerspalte identisch mit der Messpunkt-Reihenfolge (n, Zaehlrate, ...)
+    flat = [v for r in table for i, v in enumerate(r) if i % 3 != 2]
     seq = [v for r in export.rows(p) for v in (r["n"], r["Zaehlrate"])]
     assert flat == seq
     truth = [str(v) for pair in pairs for v in pair]
     assert sum(a != b for a, b in zip(flat, truth)) <= 0.03 * len(truth)
+    # Fehler je Zaehlrate: sqrt(Zaehlrate / n), deutsches Dezimalkomma
+    fehler = [r[i] for r in table for i in range(2, 30, 3)]
+    erwartet = [export._fmt(export.stat_fehler(r["Zaehlrate"], r["n"]), ",") for r in export.rows(p)]
+    assert fehler == erwartet
     text = export.to_table_csv(p)
-    assert text.splitlines()[0].count(";") == 19 and not text.startswith("Messreihe")
+    assert text.splitlines()[0].count(";") == 29 and not text.startswith("Messreihe")

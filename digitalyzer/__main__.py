@@ -4,7 +4,7 @@
   python -m digitalyzer app [--arbeitsordner ORDNER]
   python -m digitalyzer analysieren SCAN.pdf [-o ORDNER]
   python -m digitalyzer pruefen ORDNER
-  python -m digitalyzer exportieren ORDNER [-o messwerte.csv]
+  python -m digitalyzer exportieren ORDNER [-o DATEI] [--format tabelle|messpunkte|xy|xye]
   python -m digitalyzer SCAN.pdf            (analysieren und direkt pruefen)
 """
 from __future__ import annotations
@@ -55,12 +55,13 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--port", type=int, default=8765)
     r.add_argument("--kein-browser", action="store_true", help="Browser nicht automatisch oeffnen")
 
-    e = sub.add_parser("exportieren", help="Messwerte als CSV oder .xy schreiben")
+    e = sub.add_parser("exportieren", help="Messwerte als CSV, .xy oder .xye schreiben")
     e.add_argument("ordner", type=Path)
-    e.add_argument("--format", choices=["tabelle", "messpunkte", "xy"], default="tabelle",
-                   help="tabelle: wie im Scan (Standard); messpunkte: eine Zeile je Punkt mit 2Theta, "
-                        "Status und Hinweisen; xy: 2Theta und Zaehlrate")
-    e.add_argument("-o", "--ziel", type=Path, help="Zieldatei; Standard: <Ordner>/tabelle.csv, messpunkte.csv bzw. messwerte.xy")
+    e.add_argument("--format", choices=["tabelle", "messpunkte", "xy", "xye"], default="tabelle",
+                   help="tabelle: wie im Scan, nach jeder Zaehlrate ihr statistischer Fehler (Standard); "
+                        "messpunkte: eine Zeile je Punkt mit 2Theta, Fehler, Status und Hinweisen; "
+                        "xy: 2Theta und Zaehlrate; xye: 2Theta, Zaehlrate und statistischer Fehler")
+    e.add_argument("-o", "--ziel", type=Path, help="Zieldatei; Standard: <Ordner>/tabelle.csv, messpunkte.csv, messwerte.xy bzw. messwerte.xye")
     e.add_argument("--international", action="store_true", help="Komma als Trenner, Punkt als Dezimalzeichen")
 
     args = ap.parse_args(argv)
@@ -118,11 +119,17 @@ def main(argv: list[str] | None = None) -> int:
         from .validate import validate
         project = load_project(args.ordner)
         validate(project)
-        default_name = {"tabelle": "tabelle.csv", "messpunkte": "messpunkte.csv", "xy": "messwerte.xy"}[args.format]
+        default_name = {"tabelle": "tabelle.csv", "messpunkte": "messpunkte.csv", "xy": "messwerte.xy",
+                        "xye": "messwerte.xye"}[args.format]
         target = args.ziel or (args.ordner / default_name)
         export.write(project, target, international=args.international, fmt=args.format)
         s = project["summary"]
         print(f"Geschrieben: {target}  ({s['points']} Messpunkte; offen: {s['pruefen']} pruefen, {s['fehler']} Fehler)")
+        if args.format == "xye":
+            _, ausgelassen = export.xye_rows(project)
+            if ausgelassen:
+                print(f"  Achtung: {ausgelassen} Messpunkte ohne lesbare Zaehlrate oder Detektoranzahl n "
+                      "fehlen in der .xye-Datei (Fehler nicht bestimmbar) - bitte in der Pruefung korrigieren.")
         return 0
     return 1
 
