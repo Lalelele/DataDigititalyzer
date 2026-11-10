@@ -79,43 +79,31 @@ def to_csv(project: dict, international: bool = False) -> str:
     return buf.getvalue()
 
 
-def table_rows(project: dict, decimal: str = ",") -> list[list[str]]:
+def table_rows(project: dict) -> list[list[str]]:
     """Die Tabelle genau wie im Scan: eine Zeile je Scanzeile, Werte in Spaltenreihenfolge.
 
     Seiten werden in ihrer Reihenfolge aneinandergehaengt. Eine unlesbare Zelle bleibt als
     leeres Feld stehen, damit alle folgenden Werte an ihrem Platz bleiben. Die letzte,
     unvollstaendige Zeile einer Messreihe ist entsprechend kuerzer.
-
-    Auf Seiten mit (n, Zaehlrate)-Paaren folgt auf jede Zaehlrate ihr statistischer Fehler
-    (`n;Zaehlrate;Fehler;n;Zaehlrate;Fehler;...`). Ist n unlesbar, bleibt das Fehlerfeld leer.
     """
-    grid: dict[tuple[int, int], dict[int, dict]] = {}
+    grid: dict[tuple[int, int], dict[int, str]] = {}
     for c in project["cells"]:
         if c.get("status") == "leer":
             continue
-        grid.setdefault((c["page"], c["row"]), {})[c["col"]] = c
-    paired_pages = {c["page"] for c in project["cells"] if c.get("kind") == "n"}
+        grid.setdefault((c["page"], c["row"]), {})[c["col"]] = c.get("value") or ""
     out = []
     for key in sorted(grid):
         cols = grid[key]
-        line: list[str] = []
-        for i in range(max(cols) + 1):
-            c = cols.get(i)
-            line.append((c.get("value") or "") if c else "")
-            if key[0] in paired_pages and i % 2 == 1:
-                n = cols.get(i - 1)
-                sigma = stat_fehler(c.get("value"), n.get("value")) if c and n else None
-                line.append(_fmt(sigma, decimal) if sigma is not None else "")
-        out.append(line)
+        out.append([cols.get(i, "") for i in range(max(cols) + 1)])
     return out
 
 
 def to_table_csv(project: dict, international: bool = False) -> str:
     """Tabelle wie im Scan, ohne Kopfzeile und Zusatzspalten - nur die Werte."""
-    sep, dec = (",", ".") if international else (";", ",")
+    sep = "," if international else ";"
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=sep, lineterminator="\n")
-    w.writerows(table_rows(project, dec))
+    w.writerows(table_rows(project))
     return buf.getvalue()
 
 

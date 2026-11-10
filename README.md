@@ -212,7 +212,7 @@ beiden Fällen sind **alle** Abweichungen markiert.
 
 | Format | Inhalt |
 |---|---|
-| **Tabelle wie im Scan** (Standard) | Eine Zeile je Scanzeile, die Werte in der Reihenfolge des Originals, nach jeder Zählrate ihr statistischer Fehler (`n;Zählrate;Fehler;n;Zählrate;Fehler;…`), ohne Überschrift. Die Seiten werden lückenlos aneinandergehängt, die letzte unvollständige Zeile ist entsprechend kürzer. Eine unlesbare Zelle bleibt als leeres Feld stehen, damit alle anderen Werte an ihrem Platz bleiben; ist n unlesbar, bleibt auch das Fehlerfeld leer. |
+| **Tabelle wie im Scan** (Standard) | Eine Zeile je Scanzeile, die Werte in der Reihenfolge des Originals (`n;Zählrate;n;Zählrate;…`), ohne Überschrift und Zusatzspalten. Die Seiten werden lückenlos aneinandergehängt, die letzte unvollständige Zeile ist entsprechend kürzer. Eine unlesbare Zelle bleibt als leeres Feld stehen, damit alle anderen Werte an ihrem Platz bleiben. |
 | **Messpunkte** | Eine Zeile je Messpunkt: Messreihe, Index, 2θ, n, Zählrate, statistischer Fehler (`Stat_Fehler`), Seite, Zeile, Spalte, Status beider Zellen, Hinweise. Damit ist jeder Wert auf seine Stelle im Scan zurückführbar. |
 | **.xy** | Zwei Spalten: 2θ und Zählrate, für Auswerteprogramme. |
 | **.xye** | Drei Spalten: 2θ, Zählrate und statistischer Fehler, durch Leerzeichen getrennt, ohne Kopfzeile. Lesbar u. a. für GSAS-II, FullProf, TOPAS und Jana. Messpunkte ohne lesbare Zählrate oder ohne lesbares n fehlen, weil ihr Fehler nicht bestimmbar ist; die Kommandozeile meldet ihre Anzahl. Vorher in der Prüfung korrigieren. |

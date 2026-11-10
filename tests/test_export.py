@@ -43,24 +43,6 @@ def test_messpunkte_csv_hat_fehlerspalte():
     assert intl[5] == "5"
 
 
-def test_tabelle_wie_im_scan_mit_fehler_nach_jeder_zaehlrate():
-    p = _fertiges_projekt([(5, 45)] * 25)  # 2 volle Zeilen + Teilzeile mit 5 Paaren
-    tab = export.table_rows(p)
-    assert len(tab[0]) == 30  # 10 x (n, Zaehlrate, Fehler)
-    assert tab[0][:3] == ["5", "45", "3"]  # sqrt(45 / 5) = 3
-    assert len(tab[2]) == 15  # Teilzeile bleibt kuerzer
-    csv_int = export.to_table_csv(p, international=True).splitlines()[0].split(",")
-    assert csv_int[:3] == ["5", "45", "3"]
-
-
-def test_tabelle_unlesbares_n_laesst_fehlerfeld_leer():
-    leer = {"ocr1": "", "ocr2": "", "ziffern": ""}
-    p = _fertiges_projekt([(4, 64)] * 20, {"s1z1s3": leer})  # n des 2. Paares unlesbar
-    tab = export.table_rows(p)
-    assert tab[0][3:6] == ["", "64", ""]  # Fehlerfeld leer, alle Werte bleiben an ihrem Platz
-    assert tab[0][6:9] == ["4", "64", "4"]
-
-
 def test_xye_drei_spalten_und_auslassen_ohne_n():
     leer = {"ocr1": "", "ocr2": "", "ziffern": ""}
     p = _fertiges_projekt([(4, 64)] * 20, {"s1z1s3": leer})

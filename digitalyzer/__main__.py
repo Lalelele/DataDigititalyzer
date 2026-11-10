@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("exportieren", help="Messwerte als CSV, .xy oder .xye schreiben")
     e.add_argument("ordner", type=Path)
     e.add_argument("--format", choices=["tabelle", "messpunkte", "xy", "xye"], default="tabelle",
-                   help="tabelle: wie im Scan, nach jeder Zaehlrate ihr statistischer Fehler (Standard); "
+                   help="tabelle: wie im Scan (Standard); "
                         "messpunkte: eine Zeile je Punkt mit 2Theta, Fehler, Status und Hinweisen; "
                         "xy: 2Theta und Zaehlrate; xye: 2Theta, Zaehlrate und statistischer Fehler")
     e.add_argument("-o", "--ziel", type=Path, help="Zieldatei; Standard: <Ordner>/tabelle.csv, messpunkte.csv, messwerte.xy bzw. messwerte.xye")
